@@ -191,7 +191,7 @@ export default function RacePage() {
         <>
             {raceState === 'setup' && renderSetup()}
             {raceState === 'racing' && renderRacing()}
-            {race-state === 'finished' && finalResult && renderFinished()}
+            {raceState === 'finished' && finalResult && renderFinished()}
         </>
     );
 }
