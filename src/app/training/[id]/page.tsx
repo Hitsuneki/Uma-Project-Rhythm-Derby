@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { getCharacterStrategyHints } from '@/ai/flows/get-character-strategy-hints'
 import type { StrategyHints } from '@/ai/flows/get-character-strategy-hints'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Label } from '@/components/ui/label'
 
 type TrainingAction = 'speed' | 'stamina' | 'power' | 'technique' | 'rest'
 type TrainingLog = { turn: number, action: TrainingAction, message: string }
