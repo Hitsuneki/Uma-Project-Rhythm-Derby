@@ -97,8 +97,11 @@ export default function RacePage() {
     
     const finishRace = useCallback(() => {
         setRaceState('finished');
-        
-        const finalPlacement = allRunners.filter(o => o.position > position).length + 1;
+        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+
+        // Recalculate allRunners with final position to ensure accurate placement
+        const finalAllRunners = [...opponents, {id: 99, position: position, lane: currentLane, speed: 0}].sort((a,b) => b.position - a.position);
+        const finalPlacement = finalAllRunners.findIndex(r => r.id === 99) + 1;
         const score = Math.round(position - elapsedTimeRef.current / 100);
         
         const result: RaceResult = {
@@ -114,7 +117,7 @@ export default function RacePage() {
         
         setFinalResult(result)
         addRaceToHistory(result)
-    }, [addRaceToHistory, distance, trainedCharacter, position, allRunners]);
+    }, [addRaceToHistory, distance, trainedCharacter, opponents, position, currentLane]);
 
 
     const gameLoop = useCallback((timestamp: number) => {
@@ -128,8 +131,6 @@ export default function RacePage() {
         const delta = timestamp - lastTickRef.current;
         lastTickRef.current = timestamp;
         
-        if (raceState !== 'racing' || !trainedCharacter) return;
-
         elapsedTimeRef.current += delta;
         
         // Beat timing logic
@@ -147,20 +148,27 @@ export default function RacePage() {
         const techBonus = (trainedCharacter.trainedStats.technique ?? 50) / 100; // 0.5 to 1
         const currentSpeed = baseSpeed * burstMultiplier * (1 + techBonus);
         
-        setPosition(pos => Math.min(RACE_LENGTH, pos + currentSpeed * (delta / 1000)));
+        let shouldFinish = false;
+        
+        setPosition(pos => {
+            const newPos = Math.min(RACE_LENGTH, pos + currentSpeed * (delta / 1000));
+            if (newPos >= RACE_LENGTH) {
+                shouldFinish = true;
+            }
+            return newPos;
+        });
 
         setOpponents(prev => prev.map(op => ({
             ...op,
             position: Math.min(RACE_LENGTH, op.position + op.speed * (delta / 1000))
         })));
 
-        if (position >= RACE_LENGTH || elapsedTimeRef.current >= MAX_RACE_TIME) {
-            if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        if (shouldFinish || elapsedTimeRef.current >= MAX_RACE_TIME) {
             finishRace();
         } else {
             gameLoopRef.current = requestAnimationFrame(gameLoop);
         }
-    }, [trainedCharacter, isBursting, finishRace, position, raceState]);
+    }, [trainedCharacter, isBursting, finishRace]);
 
 
     const startRace = () => {
@@ -170,14 +178,12 @@ export default function RacePage() {
         const newOpponents = Array.from({ length: OPPONENT_COUNT }).map((_, i) => ({
             id: i,
             position: 0,
-            lane: i % LANE_COUNT,
+            lane: (i + 1) % LANE_COUNT,
             speed: (trainedCharacter?.character.baseStats.speed ?? 50) / 10 * (0.8 + Math.random() * 0.4) 
         }));
         setOpponents(newOpponents);
 
-        elapsedTimeRef.current = 0;
         lastTickRef.current = 0;
-        beatCycleStartRef.current = 0;
         
         gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
@@ -374,3 +380,5 @@ export default function RacePage() {
         </div>
     );
 }
+
+    
