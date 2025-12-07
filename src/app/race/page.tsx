@@ -57,6 +57,7 @@ export default function RacePage() {
     
     const [phaseQualities, setPhaseQualities] = useState<Partial<Record<RacePhase, number>>>({})
     const [finalResult, setFinalResult] = useState<RaceResult | null>(null)
+    const [progress, setProgress] = useState(0);
 
     const raceTimer = useRef<NodeJS.Timeout | null>(null)
     const countdownTimer = useRef<NodeJS.Timeout | null>(null)
@@ -152,6 +153,7 @@ export default function RacePage() {
         const { comfortMin, comfortMax, gravity } = getPhaseConfig(currentPhase, trainedCharacter.character);
         
         phaseMetrics.current.totalTime += deltaTime;
+        setProgress((phaseMetrics.current.totalTime / PHASE_DURATION) * 100);
         if (tension >= comfortMin && tension <= comfortMax) {
           phaseMetrics.current.goodTime += deltaTime;
         }
@@ -177,6 +179,7 @@ export default function RacePage() {
 
     const startPhase = () => {
         setTension(50); // Reset tension for new phase
+        setProgress(0);
         phaseMetrics.current = { goodTime: 0, totalTime: 0, startTime: 0 }
         animationFrame.current = requestAnimationFrame(gameLoop)
 
@@ -294,7 +297,7 @@ export default function RacePage() {
              <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle className="text-2xl font-headline capitalize">{currentPhase} Phase</CardTitle>
-                    <Progress value={((phaseMetrics.current.totalTime % PHASE_DURATION) / PHASE_DURATION) * 100} className="w-40 h-3"/>
+                    <Progress value={progress} className="w-40 h-3"/>
                 </div>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center gap-4 h-96">
@@ -356,3 +359,5 @@ export default function RacePage() {
         </main>
     );
 }
+
+    
