@@ -46,7 +46,7 @@ export default function RacePage() {
     const [charge, setCharge] = useState(0);
     const [isBursting, setIsBursting] = useState(false);
     const burstTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [currentLane, setCurrentLane] = useState(1);
+    const [currentLane, setCurrentLane] = useState(0);
     const [position, setPosition] = useState(0);
     const [opponents, setOpponents] = useState<Opponent[]>([]);
 
@@ -74,7 +74,7 @@ export default function RacePage() {
 
     const resetRaceState = () => {
         setPosition(0);
-        setCurrentLane(1);
+        setCurrentLane(0);
         setCharge(0);
         setIsBursting(false);
         setBeatTime(0);
@@ -89,6 +89,7 @@ export default function RacePage() {
     const finishRace = useCallback(() => {
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         if (beatTimerRef.current) clearTimeout(beatTimerRef.current);
+        setRaceState('finished');
 
         const finalPosition = opponents.filter(o => o.position > position).length + 1;
         
@@ -105,22 +106,20 @@ export default function RacePage() {
         
         setFinalResult(result)
         addRaceToHistory(result)
-        setRaceState('finished');
     }, [addRaceToHistory, distance, trainedCharacter, opponents, position]);
 
     const gameLoop = useCallback((timestamp: number) => {
-        if (!trainedCharacter) return;
-
         if (lastTickRef.current === 0) {
             lastTickRef.current = timestamp;
             gameLoopRef.current = requestAnimationFrame(gameLoop);
             return;
         }
-        
+
         const delta = timestamp - lastTickRef.current;
         lastTickRef.current = timestamp;
         elapsedTimeRef.current += delta;
 
+        if (!trainedCharacter) return;
         let currentSpeed = trainedCharacter.character.baseStats.speed / 10;
         if (isBursting) {
             currentSpeed *= 2;
@@ -160,7 +159,7 @@ export default function RacePage() {
         const newOpponents = Array.from({ length: OPPONENT_COUNT }).map((_, i) => ({
             id: i,
             position: 0,
-            lane: i % LANE_COUNT,
+            lane: (i + 1) % LANE_COUNT,
             speed: (trainedCharacter?.character.baseStats.speed ?? 50) / 10 * (0.8 + Math.random() * 0.4) // Speed between 80% and 120% of player
         }));
         setOpponents(newOpponents);
@@ -183,11 +182,6 @@ export default function RacePage() {
 
             if (charge < MAX_CHARGE) {
                 setCharge(c => c + 1);
-            } else {
-                setIsBursting(true);
-                setCharge(0);
-                if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
-                burstTimeoutRef.current = setTimeout(() => setIsBursting(false), BURST_DURATION);
             }
         } else {
             setCurrentLane(prev => (prev + 1) % LANE_COUNT);
@@ -286,7 +280,7 @@ export default function RacePage() {
 
     const renderRacing = () => {
         const timeSinceBeat = Date.now() - beatTime;
-        const beatProgress = Math.min(100, (timeSinceBeat / BASE_BEAT_INTERVAL) * 100);
+        const beatProgress = Math.min(100, (timeSinceBeat / (BASE_BEAT_INTERVAL + BEAT_RANDOMNESS / 2)) * 100);
         const windowSize = (TIMING_WINDOW * 2 / BASE_BEAT_INTERVAL) * 100;
 
         return (
@@ -355,3 +349,5 @@ export default function RacePage() {
         </div>
     );
 }
+
+    
