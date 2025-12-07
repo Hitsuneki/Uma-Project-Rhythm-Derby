@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from '@/components/ui/separator'
-import { Zap, Shield, Fist, Brain, Bed, Lightbulb, Trophy } from 'lucide-react'
+import { Zap, Shield, Dumbbell, Brain, Bed, Lightbulb, Trophy } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { getCharacterStrategyHints } from '@/ai/flows/get-character-strategy-hints'
 import type { StrategyHints } from '@/ai/flows/get-character-strategy-hints'
@@ -35,7 +35,7 @@ const LOW_ENERGY_THRESHOLD = 20
 const trainingOptions = [
     { id: 'speed', label: 'Speed Training', icon: Zap, cost: ENERGY_COST, gain: { stat: 'speed', amount: 5 } },
     { id: 'stamina', label: 'Stamina Training', icon: Shield, cost: ENERGY_COST, gain: { stat: 'stamina', amount: 5 } },
-    { id: 'power', label: 'Power Training', icon: Fist, cost: ENERGY_COST, gain: { stat: 'power', amount: 5 } },
+    { id: 'power', label: 'Power Training', icon: Dumbbell, cost: ENERGY_COST, gain: { stat: 'power', amount: 5 } },
     { id: 'technique', label: 'Technique Training', icon: Brain, cost: ENERGY_COST, gain: { stat: 'technique', amount: 5 } },
     { id: 'rest', label: 'Rest', icon: Bed, cost: 0, gain: { stat: 'energy', amount: REST_GAIN } },
 ] as const
