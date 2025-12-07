@@ -27,15 +27,8 @@ export default function Home() {
         {presetCharacters.map((character) => (
           <Card key={character.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow duration-300">
             <CardHeader className="p-0">
-              <div className="relative w-full h-60">
-                <Image
-                  src={character.imageUrl}
-                  alt={character.name}
-                  fill
-                  style={{ objectFit: 'cover' }}
-                  className="transition-transform duration-300 group-hover:scale-105"
-                  data-ai-hint={character.imageHint}
-                />
+              <div className="relative w-full h-60 bg-muted flex items-center justify-center">
+                <span className="font-headline text-2xl text-muted-foreground">{character.name}</span>
               </div>
             </CardHeader>
             <CardContent className="flex-grow p-4">

@@ -163,7 +163,9 @@ export default function RacePage() {
                   {participants.map((p, i) => (
                     <div key={i} className="flex items-center gap-4">
                       <span className="font-bold w-6 text-center">{p.placement}</span>
-                      <Image src={'character' in p ? p.character.imageUrl : `https://picsum.photos/seed/${p.name.replace(' ','')}/100/100`} alt={p.name} width={40} height={40} className="rounded-full" />
+                       <div className="w-10 h-10 rounded-full bg-muted-foreground/20 flex items-center justify-center text-xs text-muted-foreground overflow-hidden">
+                        {'character' in p ? p.character.name.substring(0, 2) : p.name.substring(0, 2)}
+                      </div>
                       <div className="flex-1">
                           <div className="flex justify-between mb-1">
                               <span className="text-sm font-medium">{'character' in p ? p.character.name : p.name}</span>
