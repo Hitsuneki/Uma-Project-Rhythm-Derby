@@ -140,13 +140,14 @@ export default function RacePage() {
         
         // Beat timing logic
         const timeSinceBeatCycleStart = timestamp - beatCycleStartRef.current;
-        const currentBeatProgress = timeSinceBeatCycleStart / BASE_BEAT_INTERVAL;
-        setBeatProgress(currentBeatProgress);
+        let currentBeatProgress = timeSinceBeatCycleStart / BASE_BEAT_INTERVAL;
 
         if (currentBeatProgress >= 1.0) {
+            currentBeatProgress = 0;
             beatCycleStartRef.current = timestamp;
-            setBeatProgress(0);
         }
+        setBeatProgress(currentBeatProgress);
+
 
         // Speed and position logic
         const baseSpeed = (trainedCharacter.trainedStats.speed ?? 50) / 10;
