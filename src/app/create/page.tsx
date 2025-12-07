@@ -32,7 +32,7 @@ type CreateUmaForm = z.infer<typeof createUmaSchema>
 
 export default function CreateUmaPage() {
   const router = useRouter()
-  const { setSelectedCharacter } = useAppContext()
+  const { setSelectedCharacter, updateCharacter } = useAppContext()
   const { toast } = useToast()
 
   const { control, handleSubmit, watch, formState: { errors } } = useForm<CreateUmaForm>({
@@ -69,12 +69,16 @@ export default function CreateUmaPage() {
         stamina: data.stamina,
         technique: data.technique,
       },
+      level: 1,
+      xp: 0,
+      xpToNextLevel: 100,
       temperament: 'Normal',
       comfortMin: 40,
       comfortMax: 60,
       trait: { name: 'Rookie', description: 'A fresh face with a lot to learn.' },
     }
     
+    updateCharacter(newCharacter)
     setSelectedCharacter(newCharacter)
     toast({
       title: "Character Created!",

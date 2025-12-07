@@ -18,9 +18,17 @@ import { v4 as uuidv4 } from "uuid"
 type GameState = 'idle' | 'countdown' | 'sprinting' | 'finished'
 type State = {
   stats: { speed: number, stamina: number, technique: number }
-  lastSprint: SprintResult | null
+  lastSprint: SprintResult | null,
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
 }
-type Action = { type: 'apply_sprint_results', payload: { statChanges: Partial<Record<Stat, number>>, sprintResult: SprintResult } } | { type: 'reset', payload: { baseStats: State['stats'] } }
+type Action = 
+  | { type: 'apply_sprint_results', payload: { statChanges: Partial<Record<Stat, number>>, sprintResult: SprintResult } } 
+  | { type: 'reset', payload: { character: UmaCharacter } }
+  | { type: 'level_up', payload: { newXp: number, newXpToNextLevel: number } }
+  | { type: 'gain_xp', payload: { xp: number } }
+
 
 const SPRINT_DURATION = 12 * 1000 // 12 seconds
 const TENSION_PER_TAP = 8
@@ -36,8 +44,11 @@ const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case 'reset':
       return {
-        stats: action.payload.baseStats,
+        stats: action.payload.character.baseStats,
         lastSprint: null,
+        level: action.payload.character.level,
+        xp: action.payload.character.xp,
+        xpToNextLevel: action.payload.character.xpToNextLevel,
       }
     case 'apply_sprint_results':
       const newStats = { ...state.stats }
@@ -49,6 +60,18 @@ const reducer = (state: State, action: Action): State => {
         stats: newStats,
         lastSprint: action.payload.sprintResult
       }
+    case 'gain_xp':
+      return {
+        ...state,
+        xp: state.xp + action.payload.xp,
+      };
+    case 'level_up':
+      return {
+        ...state,
+        level: state.level + 1,
+        xp: action.payload.newXp,
+        xpToNextLevel: action.payload.newXpToNextLevel,
+      };
     default:
       return state
   }
@@ -57,11 +80,11 @@ const reducer = (state: State, action: Action): State => {
 export default function TrainingPage() {
   const router = useRouter()
   const params = useParams()
-  const { selectedCharacter, addSprintToHistory, setTrainedCharacter } = useAppContext()
+  const { selectedCharacter, addSprintToHistory, setTrainedCharacter, updateCharacter } = useAppContext()
   const { toast } = useToast()
 
   const [character, setCharacter] = useState<UmaCharacter | null>(null)
-  const [state, dispatch] = useReducer(reducer, { stats: { speed: 0, stamina: 0, technique: 0 }, lastSprint: null })
+  const [state, dispatch] = useReducer(reducer, { stats: { speed: 0, stamina: 0, technique: 0 }, lastSprint: null, level: 1, xp: 0, xpToNextLevel: 100 })
 
   const [gameState, setGameState] = useState<GameState>('idle')
   const [countdown, setCountdown] = useState(3)
@@ -78,7 +101,7 @@ export default function TrainingPage() {
     const char = selectedCharacter || presetCharacters.find(c => c.id === params.id)
     if (char) {
       setCharacter(char)
-      dispatch({ type: 'reset', payload: { baseStats: char.baseStats } })
+      dispatch({ type: 'reset', payload: { character: char } })
     } else {
       router.push('/')
     }
@@ -91,6 +114,8 @@ export default function TrainingPage() {
   }, [params.id, router, selectedCharacter])
 
   const calculateSprintResults = () => {
+    if (!character) return;
+
     const { goodStride, overstrain, underpace, totalTime } = sprintMetrics.current
     if (totalTime === 0) return;
 
@@ -114,16 +139,16 @@ export default function TrainingPage() {
     }
     
     // Trait effects
-    if (character?.trait.name === 'Late Burst' && (sprintMetrics.current.totalTime / 1000) > 9) {
+    if (character.trait.name === 'Late Burst' && (sprintMetrics.current.totalTime / 1000) > 9) {
         score *= 1.1;
     }
-    if (character?.trait.name === 'Powerhouse' && overstrainPerc > 0) {
+    if (character.trait.name === 'Powerhouse' && overstrainPerc > 0) {
         statChanges.speed = (statChanges.speed || 0) + 1;
     }
-    if (character?.trait.name === 'Prodigy' && goodStridePerc > 60) {
+    if (character.trait.name === 'Prodigy' && goodStridePerc > 60) {
         statChanges.technique = (statChanges.technique || 0) + 1;
     }
-     if (character?.trait.name === 'Heart of Gold' && underpacePerc > 10) {
+     if (character.trait.name === 'Heart of Gold' && underpacePerc > 10) {
         statChanges.stamina = (statChanges.stamina || 0) + 1;
     }
 
@@ -141,7 +166,11 @@ export default function TrainingPage() {
 
     dispatch({ type: 'apply_sprint_results', payload: { statChanges, sprintResult: result } })
     addSprintToHistory(result)
-    toast({ title: "Sprint Complete!", description: `You scored ${result.score} points.` })
+    
+    const xpGained = Math.max(10, Math.round(score / 5));
+    dispatch({ type: 'gain_xp', payload: { xp: xpGained } });
+
+    toast({ title: "Sprint Complete!", description: `You scored ${result.score} and gained ${xpGained} XP.` })
   }
 
   const updateTension = useCallback((deltaTime: number) => {
@@ -211,11 +240,33 @@ export default function TrainingPage() {
     setGameState('idle')
   }
 
+  // Check for level up
+  useEffect(() => {
+    if (character && state.xp >= state.xpToNextLevel) {
+      const newXp = state.xp - state.xpToNextLevel;
+      const newXpToNextLevel = Math.floor(state.xpToNextLevel * 1.5);
+      dispatch({ type: 'level_up', payload: { newXp, newXpToNextLevel } });
+      toast({ title: "Level Up!", description: `${character.name} has reached Level ${state.level + 1}!` });
+    }
+  }, [state.xp, state.xpToNextLevel, state.level, character, toast]);
+
   const enterShowcaseRace = () => {
+    if (!character) return;
+    
+    const finalCharacterState: UmaCharacter = {
+        ...character,
+        baseStats: state.stats, // The trained stats become the new base stats
+        level: state.level,
+        xp: state.xp,
+        xpToNextLevel: state.xpToNextLevel,
+    };
+    
     const trainedUma: TrainedUma = {
-      character: character!,
+      character: finalCharacterState,
       trainedStats: state.stats
     }
+    
+    updateCharacter(finalCharacterState);
     setTrainedCharacter(trainedUma)
     router.push('/race')
   }
@@ -305,12 +356,21 @@ export default function TrainingPage() {
         
         <div className="lg:col-span-1 space-y-6">
           <Card>
-            <CardHeader className="relative h-48 flex justify-center items-center rounded-t-lg bg-muted">
+             <CardHeader className="relative h-48 flex justify-center items-center rounded-t-lg bg-muted">
                  <div className="relative w-full h-full bg-muted flex items-center justify-center">
                     <span className="font-headline text-3xl text-muted-foreground z-10">{character.name}</span>
                  </div>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
+              <div>
+                <div className="flex justify-between items-baseline">
+                    <Label>Level</Label>
+                    <span className="font-bold text-lg text-primary">{state.level}</span>
+                </div>
+                <Progress value={(state.xp / state.xpToNextLevel) * 100} className="h-2 mt-1" />
+                <p className="text-xs text-muted-foreground text-right mt-1">{state.xp} / {state.xpToNextLevel} XP</p>
+              </div>
+              <Separator/>
               <div className="grid grid-cols-3 gap-4">
                 {(Object.keys(state.stats) as Stat[]).map(stat => (
                     <div key={stat} className="flex flex-col items-center gap-2 p-2 rounded-lg bg-muted">

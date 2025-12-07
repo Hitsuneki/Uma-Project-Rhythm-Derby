@@ -9,6 +9,9 @@ export interface UmaCharacter {
     stamina: number;
     technique: number;
   };
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
   temperament: 'Calm' | 'Normal' | 'Fiery';
   comfortMin: number;
   comfortMax: number;
