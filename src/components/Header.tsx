@@ -11,9 +11,9 @@ export default function Header() {
     const pathname = usePathname();
     const { selectedCharacter, characters } = useAppContext();
 
-    // Determine the correct training link
+    // Determine the correct training link, ensuring it's not rendered if no character is available
     const trainingCharacterId = selectedCharacter?.id || (characters.length > 0 ? characters[0].id : null);
-    const trainingLink = trainingCharacterId ? `/training/${trainingCharacterId}` : '/';
+    const trainingLink = trainingCharacterId ? `/training/${trainingCharacterId}` : null;
 
 
     const navLinks = [
@@ -30,12 +30,11 @@ export default function Header() {
         <nav className="flex w-full items-center justify-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="container flex h-14 items-center justify-center gap-4">
                 {navLinks.map(({ href, label, icon: Icon }) => {
-                    // Special handling for training link active state
-                    const isActive = (href === '/training' && isTrainingPage) || (pathname === href && href !== '/');
-                    if (href === '/' && pathname !== '/') {
-                        // Don't mark home active if we are on other pages
+                    // Do not render the link if the href is null (e.g., training link before character loads)
+                    if (href === null) {
+                        return null;
                     }
-
+                    
                     let finalIsActive = (href === '/' && pathname === '/') || (href !== '/' && pathname.startsWith(href));
                     if(label === 'Training') {
                         finalIsActive = isTrainingPage;
