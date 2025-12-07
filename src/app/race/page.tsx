@@ -16,6 +16,7 @@ type RaceDistance = 'short' | 'mid' | 'long'
 
 // --- New Lane Pulse Racing constants ---
 const RACE_LENGTH = 1000; // arbitrary units for track length
+const MAX_RACE_TIME = 30 * 1000; // 30 seconds
 const BEAT_INTERVAL = 500; // ms per beat
 const TIMING_WINDOW = 80; // ms on either side of beat
 const MAX_CHARGE = 3;
@@ -33,6 +34,7 @@ export default function RacePage() {
     // --- Game State Refs ---
     const gameLoopRef = useRef<number>(0);
     const lastTickRef = useRef<number>(0);
+    const elapsedTimeRef = useRef<number>(0);
 
     // --- Player State ---
     const [charge, setCharge] = useState(0);
@@ -68,6 +70,7 @@ export default function RacePage() {
         setCharge(0);
         setIsBursting(false);
         setBeatTime(0);
+        elapsedTimeRef.current = 0;
         if (beatTimerRef.current) clearInterval(beatTimerRef.current);
         if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
@@ -88,32 +91,40 @@ export default function RacePage() {
     };
 
     const gameLoop = useCallback((timestamp: number) => {
-        if (!trainedCharacter) return;
+        if (raceState !== 'racing' || !trainedCharacter) return;
         
         const delta = timestamp - lastTickRef.current;
         lastTickRef.current = timestamp;
+        elapsedTimeRef.current += delta;
 
         let currentSpeed = trainedCharacter.character.baseStats.speed / 10; // Base speed
         if (isBursting) {
             currentSpeed *= 2; // Burst bonus
         }
         
-        const newPosition = position + currentSpeed * (delta / 1000);
+        // Use a function for state update to ensure we have the latest position
+        let raceFinished = false;
+        setPosition(prevPosition => {
+            const newPosition = prevPosition + currentSpeed * (delta / 1000);
+            if (newPosition >= RACE_LENGTH || elapsedTimeRef.current >= MAX_RACE_TIME) {
+                raceFinished = true;
+                return RACE_LENGTH;
+            }
+            return newPosition;
+        });
 
-        if (newPosition >= RACE_LENGTH) {
-            // Race finished
-            setPosition(RACE_LENGTH);
+        if (raceFinished) {
             finishRace();
         } else {
-            setPosition(newPosition);
             gameLoopRef.current = requestAnimationFrame(gameLoop);
         }
-    }, [trainedCharacter, isBursting, position]);
+    }, [trainedCharacter, isBursting, raceState]);
 
 
     const finishRace = () => {
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         if (beatTimerRef.current) clearInterval(beatTimerRef.current);
+        setRaceState('finished');
         
         // Dummy results for now
         const result: RaceResult = {
@@ -129,7 +140,6 @@ export default function RacePage() {
         
         setFinalResult(result)
         addRaceToHistory(result)
-        setRaceState('finished');
     }
 
     const handlePlayerClick = () => {
@@ -314,4 +324,3 @@ export default function RacePage() {
         </div>
     );
 }
-
