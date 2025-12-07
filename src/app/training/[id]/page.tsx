@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { Zap, Shield, Brain, ChevronsUp, ChevronsDown, Award, Sparkles } from 'lucide-react'
+import { Zap, Shield, Brain, ChevronsUp, ChevronsDown, Award, Sparkles, Flag } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
@@ -434,6 +434,10 @@ export default function TrainingPage() {
                     <div className="absolute h-full bg-primary/30 rounded-full" style={{ left: `${character.comfortMin}%`, width: `${character.comfortMax - character.comfortMin}%`}} />
                 </div>
                </div>
+               <Separator />
+                <Button onClick={enterShowcaseRace} className="w-full">
+                  <Flag className="mr-2 h-4 w-4" /> Enter Showcase Race
+                </Button>
             </CardContent>
           </Card>
         </div>
@@ -442,5 +446,3 @@ export default function TrainingPage() {
     </main>
   )
 }
-
-    

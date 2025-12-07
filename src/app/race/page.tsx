@@ -46,7 +46,7 @@ const getPhaseConfig = (phase: RacePhase, character: UmaCharacter) => {
 
 export default function RacePage() {
     const router = useRouter()
-    const { trainedCharacter, addRaceToHistory, updateCharacter } = useAppContext()
+    const { trainedCharacter, addRaceToHistory, updateCharacter, setTrainedCharacter, characters } = useAppContext()
     const { toast } = useToast()
 
     const [raceState, setRaceState] = useState<RaceState>('setup')
@@ -64,16 +64,21 @@ export default function RacePage() {
     const phaseMetrics = useRef({ goodTime: 0, totalTime: 0, startTime: 0 })
 
     useEffect(() => {
-        if (!trainedCharacter) {
-            toast({ title: "No character selected!", description: "Returning to home.", variant: "destructive"})
-            router.push('/')
+        if (!trainedCharacter && characters.length > 0) {
+            // If no trained character is set, but characters exist, set the first one.
+            const firstChar = characters[0];
+            setTrainedCharacter({
+                character: firstChar,
+                trainedStats: firstChar.baseStats
+            });
         }
+        
         return () => {
             if (raceTimer.current) clearTimeout(raceTimer.current)
             if (countdownTimer.current) clearTimeout(countdownTimer.current)
             if(animationFrame.current) cancelAnimationFrame(animationFrame.current)
         }
-    }, [trainedCharacter, router, toast])
+    }, [trainedCharacter, characters, setTrainedCharacter, toast, router])
 
     const currentPhase = useMemo(() => racePhases[currentPhaseIndex], [currentPhaseIndex])
     
@@ -211,7 +216,19 @@ export default function RacePage() {
     }
 
     if (!trainedCharacter) {
-        return null; // or a loading spinner
+        return (
+             <main className="flex-1 p-4 sm:p-6 flex items-center justify-center">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Select a Character</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p>You need to select a character before you can race.</p>
+                        <Button onClick={() => router.push('/')} className="mt-4">Go to Character Selection</Button>
+                    </CardContent>
+                </Card>
+            </main>
+        )
     }
 
     const character = trainedCharacter.character;

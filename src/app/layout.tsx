@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Home, PlusSquare, History, Users } from 'lucide-react';
+import { Home, PlusSquare, History, Users, Dumbbell, Flag } from 'lucide-react';
 import { AppProvider } from '@/context/AppContext';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import MobileHeader from '@/components/MobileHeader';
@@ -49,6 +49,14 @@ export default function RootLayout({
                         <Link href="/create">
                           <PlusSquare />
                           <span>Create Uma</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton tooltip="Showcase Race" asChild>
+                        <Link href="/race">
+                          <Flag />
+                          <span>Race</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
