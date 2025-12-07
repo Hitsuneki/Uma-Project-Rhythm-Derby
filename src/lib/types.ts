@@ -15,13 +15,15 @@ export interface UmaCharacter {
   temperament: 'Calm' | 'Normal' | 'Fiery';
   comfortMin: number;
   comfortMax: number;
-  trait: {
-    name: string;
-    description: string;
-  };
+  trait: Trait;
 }
 
 export type Stat = 'speed' | 'stamina' | 'technique';
+
+export interface Trait {
+  name: string;
+  description: string;
+}
 
 export interface TrainedUma {
   character: UmaCharacter;
@@ -43,9 +45,16 @@ export interface SprintResult {
   date: string;
 }
 
-export interface ShowcaseRace {
+export type RaceDistance = 'short' | 'mid' | 'long';
+
+export interface RaceResult {
     id: string;
     umaId: string;
+    distance: RaceDistance;
+    phase1_quality: number;
+    phase2_quality: number;
+    phase3_quality: number;
+    overall_quality: number;
     raceScore: number;
     placement: number;
     date: string;
