@@ -11,7 +11,6 @@ export default function HistoryPage() {
   const { sprintHistory, raceHistory } = useAppContext()
 
   return (
-    <main className="flex-1 p-4 sm:p-6">
       <Tabs defaultValue="races">
         <div className="flex justify-between items-center mb-4">
             <h1 className="text-3xl font-headline">History</h1>
@@ -102,6 +101,5 @@ export default function HistoryPage() {
             </Card>
         </TabsContent>
       </Tabs>
-    </main>
   )
 }

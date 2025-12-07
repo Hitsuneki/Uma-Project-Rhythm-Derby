@@ -18,7 +18,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 p-4 sm:p-6">
+    <>
       <div className="flex items-center mb-6">
         <h1 className="text-4xl font-headline font-bold tracking-tight">Select a Character</h1>
       </div>
@@ -58,6 +58,6 @@ export default function Home() {
           </Card>
         ))}
       </div>
-    </main>
+    </>
   );
 }

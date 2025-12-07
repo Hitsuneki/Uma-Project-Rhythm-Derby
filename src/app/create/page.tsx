@@ -88,8 +88,7 @@ export default function CreateUmaPage() {
   }
 
   return (
-    <main className="flex-1 p-4 sm:p-6 flex justify-center items-start">
-      <Card className="w-full max-w-2xl">
+      <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
           <CardTitle className="text-3xl font-headline">Create Your Own Uma</CardTitle>
           <CardDescription>Design a new character. You have {MAX_POINTS} points to distribute among the stats.</CardDescription>
@@ -148,6 +147,5 @@ export default function CreateUmaPage() {
           </CardFooter>
         </form>
       </Card>
-    </main>
   )
 }

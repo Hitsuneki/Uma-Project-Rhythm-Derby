@@ -1,14 +1,11 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Home, PlusSquare, History, Users, Dumbbell, Flag } from 'lucide-react';
 import { AppProvider } from '@/context/AppContext';
-import { SidebarProvider, Sidebar, SidebarInset, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import MobileHeader from '@/components/MobileHeader';
 import { Toaster } from "@/components/ui/toaster"
+import Header from '@/components/Header';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Mini Uma Stable',
+  title: 'Uma Project: Rhythm Derby',
   description: 'Train your own Uma and race to victory!',
 };
 
@@ -26,59 +23,14 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AppProvider>
-          <SidebarProvider>
-            <div className="flex min-h-screen w-full bg-background">
-              <Sidebar>
-                <SidebarHeader>
-                  <Link href="/" className="flex items-center gap-2">
-                    <span className="text-2xl font-headline font-bold text-primary">Mini Uma Stable</span>
-                  </Link>
-                </SidebarHeader>
-                <SidebarContent>
-                  <SidebarMenu>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton tooltip="Character Selection" asChild>
-                        <Link href="/">
-                          <Users />
-                          <span>Characters</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton tooltip="Create New Uma" asChild>
-                        <Link href="/create">
-                          <PlusSquare />
-                          <span>Create Uma</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton tooltip="Showcase Race" asChild>
-                        <Link href="/race">
-                          <Flag />
-                          <span>Race</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton tooltip="Race History" asChild>
-                        <Link href="/history">
-                          <History />
-                          <span>Race History</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  </SidebarMenu>
-                </SidebarContent>
-              </Sidebar>
-              <div className="flex flex-1 flex-col">
-                <MobileHeader />
-                <SidebarInset>
-                  {children}
-                </SidebarInset>
+          <div className="flex min-h-screen w-full flex-col bg-background">
+            <Header />
+            <main className="flex flex-1 flex-col items-center p-4 sm:p-6">
+              <div className="w-full max-w-7xl">
+                {children}
               </div>
-            </div>
-          </SidebarProvider>
+            </main>
+          </div>
           <Toaster />
         </AppProvider>
       </body>

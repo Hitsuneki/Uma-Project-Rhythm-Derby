@@ -326,7 +326,6 @@ export default function TrainingPage() {
 
 
   return (
-    <main className="flex-1 p-4 sm:p-6">
        <div className="grid gap-6 lg:grid-cols-3">
          <div className="lg:col-span-2 space-y-6">
             <Card className="relative overflow-hidden">
@@ -441,8 +440,6 @@ export default function TrainingPage() {
             </CardContent>
           </Card>
         </div>
-
       </div>
-    </main>
   )
 }
