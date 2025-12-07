@@ -99,16 +99,21 @@ export default function RacePage() {
         setRaceState('finished');
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
 
-        // Recalculate allRunners with final position to ensure accurate placement
-        const finalAllRunners = [...opponents, {id: 99, position: position, lane: currentLane, speed: 0}].sort((a,b) => b.position - a.position);
+        const finalAllRunners = [...opponents, {id: 99, position, lane: currentLane, speed: 0}].sort((a,b) => b.position - a.position);
         const finalPlacement = finalAllRunners.findIndex(r => r.id === 99) + 1;
-        const score = Math.round(position - elapsedTimeRef.current / 100);
+
+        const baseScore = 5000;
+        const timeBonus = Math.max(0, Math.round((MAX_RACE_TIME - elapsedTimeRef.current) / 100));
+        const placementPenalty = (finalPlacement - 1) * 250;
+        const score = baseScore + timeBonus - placementPenalty;
         
         const result: RaceResult = {
             id: uuidv4(),
             umaId: trainedCharacter!.character.id,
             distance,
-            phase1_quality: 90, phase2_quality: 85, phase3_quality: 95, // placeholder
+            phase1_quality: 90, // placeholder
+            phase2_quality: 85, // placeholder
+            phase3_quality: 95, // placeholder
             overall_quality: 90, // placeholder
             raceScore: score,
             placement: finalPlacement,
@@ -304,7 +309,7 @@ export default function RacePage() {
                 <Card className="w-full">
                     <CardHeader>
                         <div className="flex justify-between items-center">
-                            <CardTitle className='font-headline text-2xl'>Lane Pulse Racing: {character.name}</CardTitle>
+                            <CardTitle className='font-headline text-2xl'>{character.name}</CardTitle>
                             <span className="font-bold text-xl">{placementText(playerRank)} / {OPPONENT_COUNT + 1}</span>
                         </div>
                         <CardDescription>Click in the highlighted zone to charge, click outside to switch lanes.</CardDescription>
@@ -380,5 +385,3 @@ export default function RacePage() {
         </div>
     );
 }
-
-    
