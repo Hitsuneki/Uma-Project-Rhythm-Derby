@@ -27,7 +27,8 @@ interface Opponent {
     id: number;
     position: number;
     lane: number;
-    speed: number;
+    baseSpeed: number;
+    currentSpeed: number;
 }
 
 export default function RacePage() {
@@ -55,7 +56,7 @@ export default function RacePage() {
     const [showHitMarker, setShowHitMarker] = useState(false);
 
 
-    const allRunners = [...opponents, {id: 99, position: position, lane: currentLane, speed: 0}].sort((a,b) => b.position - a.position);
+    const allRunners = [...opponents, {id: 99, position: position, lane: currentLane, baseSpeed: 0, currentSpeed: 0}].sort((a,b) => b.position - a.position);
     const playerRank = allRunners.findIndex(r => r.id === 99) + 1;
 
     const randomizeBeatWindow = useCallback(() => {
@@ -99,7 +100,7 @@ export default function RacePage() {
         setRaceState('finished');
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
 
-        const finalAllRunners = [...opponents, {id: 99, position, lane: currentLane, speed: 0}].sort((a,b) => b.position - a.position);
+        const finalAllRunners = [...opponents, {id: 99, position, lane: currentLane, baseSpeed: 0, currentSpeed: 0}].sort((a,b) => b.position - a.position);
         const finalPlacement = finalAllRunners.findIndex(r => r.id === 99) + 1;
 
         const baseScore = 5000;
@@ -143,7 +144,7 @@ export default function RacePage() {
         let currentBeatProgress = timeSinceBeatCycleStart / BASE_BEAT_INTERVAL;
 
         if (currentBeatProgress >= 1.0) {
-            currentBeatProgress = 0;
+            currentBeatProgress = currentBeatProgress % 1.0;
             beatCycleStartRef.current = timestamp;
         }
         setBeatProgress(currentBeatProgress);
@@ -165,10 +166,21 @@ export default function RacePage() {
             return newPos;
         });
 
-        setOpponents(prev => prev.map(op => ({
-            ...op,
-            position: Math.min(RACE_LENGTH, op.position + op.speed * (delta / 1000))
-        })));
+        setOpponents(prev => prev.map(op => {
+            // Simple AI: randomly change speed
+            let newSpeed = op.currentSpeed;
+            if (Math.random() < 0.01) { // small chance to 'burst'
+                newSpeed = op.baseSpeed * (1.5 + Math.random() * 0.5);
+            } else if (Math.random() < 0.05) { // small chance to return to base
+                newSpeed = op.baseSpeed;
+            }
+
+            return {
+                ...op,
+                currentSpeed: newSpeed,
+                position: Math.min(RACE_LENGTH, op.position + newSpeed * (delta / 1000))
+            }
+        }));
 
         if (shouldFinish || elapsedTimeRef.current >= MAX_RACE_TIME) {
             finishRace();
@@ -182,12 +194,17 @@ export default function RacePage() {
         resetRaceState();
         setRaceState('racing');
 
-        const newOpponents = Array.from({ length: OPPONENT_COUNT }).map((_, i) => ({
-            id: i,
-            position: 0,
-            lane: (i + 1) % LANE_COUNT,
-            speed: (trainedCharacter?.character.baseStats.speed ?? 50) / 10 * (0.8 + Math.random() * 0.4) 
-        }));
+        const newOpponents = Array.from({ length: OPPONENT_COUNT }).map((_, i) => {
+            const playerBaseSpeed = (trainedCharacter.trainedStats.speed ?? 50) / 10;
+            const baseSpeed = playerBaseSpeed * (0.85 + Math.random() * 0.3); // Range: 85% to 115% of player's base
+            return {
+                id: i,
+                position: 0,
+                lane: (i + 1) % LANE_COUNT,
+                baseSpeed: baseSpeed,
+                currentSpeed: baseSpeed,
+            };
+        });
         setOpponents(newOpponents);
 
         lastTickRef.current = 0;
@@ -198,7 +215,6 @@ export default function RacePage() {
     const handlePlayerClick = () => {
         if (raceState !== 'racing' || !trainedCharacter) return;
         
-        // Use the same beatProgress state that drives the UI
         const progress = beatProgress;
 
         if (progress >= beatWindow.start && progress <= beatWindow.end) {
