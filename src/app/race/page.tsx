@@ -140,11 +140,12 @@ export default function RacePage() {
         
         // Beat timing logic
         const timeSinceBeatCycleStart = timestamp - beatCycleStartRef.current;
-        if (timeSinceBeatCycleStart >= BASE_BEAT_INTERVAL) {
+        const currentBeatProgress = timeSinceBeatCycleStart / BASE_BEAT_INTERVAL;
+        setBeatProgress(currentBeatProgress);
+
+        if (currentBeatProgress >= 1.0) {
             beatCycleStartRef.current = timestamp;
             setBeatProgress(0);
-        } else {
-            setBeatProgress(timeSinceBeatCycleStart / BASE_BEAT_INTERVAL);
         }
 
         // Speed and position logic
