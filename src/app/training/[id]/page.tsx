@@ -153,57 +153,8 @@ export default function TrainingPage() {
   
   return (
     <main className="flex-1 p-4 sm:p-6">
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-1 space-y-6">
-          <Card>
-            <CardHeader className="relative h-48 flex justify-center items-center">
-                <Image src={character.imageUrl} alt={character.name} fill style={{objectFit: 'cover'}} className="rounded-t-lg" data-ai-hint={character.imageHint}/>
-                <div className="absolute inset-0 bg-black/40 rounded-t-lg" />
-                <CardTitle className="relative text-3xl font-headline text-white z-10">{character.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              <div>
-                <Label>Energy ({state.energy}/100)</Label>
-                <Progress value={state.energy} className="h-4 mt-1" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {(Object.keys(state.stats) as Stat[]).map(stat => (
-                    <div key={stat} className="flex items-center gap-2">
-                        {React.createElement(trainingOptions.find(o => o.id === stat)!.icon, { className: 'w-5 h-5 text-primary' })}
-                        <span className="capitalize text-sm font-medium">{stat}:</span>
-                        <span className="font-bold">{state.stats[stat]}</span>
-                    </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Lightbulb className="text-primary"/> Strategy Hints</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingHints ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-4 w-full" />
-                </div>
-              ) : strategyHints ? (
-                <div className="space-y-2 text-sm">
-                  <p><strong>Best Distance:</strong> {strategyHints.bestDistance}</p>
-                  <p><strong>Preferred Style:</strong> {strategyHints.preferredStyle}</p>
-                  <Separator className="my-2" />
-                  <p className="text-muted-foreground">{strategyHints.aiOpponentAnalysis}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No hints available.</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
@@ -250,6 +201,54 @@ export default function TrainingPage() {
                     </div>
                 </CardContent>
             </Card>
+        </div>
+        <div className="lg:col-span-1 space-y-6">
+          <Card>
+            <CardHeader className="relative h-48 flex justify-center items-center">
+                <Image src={character.imageUrl} alt={character.name} fill style={{objectFit: 'cover'}} className="rounded-t-lg" data-ai-hint={character.imageHint}/>
+                <div className="absolute inset-0 bg-black/40 rounded-t-lg" />
+                <CardTitle className="relative text-3xl font-headline text-white z-10">{character.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div>
+                <Label>Energy ({state.energy}/100)</Label>
+                <Progress value={state.energy} className="h-4 mt-1" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {(Object.keys(state.stats) as Stat[]).map(stat => (
+                    <div key={stat} className="flex items-center gap-2">
+                        {React.createElement(trainingOptions.find(o => o.id === stat)!.icon, { className: 'w-5 h-5 text-primary' })}
+                        <span className="capitalize text-sm font-medium">{stat}:</span>
+                        <span className="font-bold">{state.stats[stat]}</span>
+                    </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Lightbulb className="text-primary"/> Strategy Hints</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingHints ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ) : strategyHints ? (
+                <div className="space-y-2 text-sm">
+                  <p><strong>Best Distance:</strong> {strategyHints.bestDistance}</p>
+                  <p><strong>Preferred Style:</strong> {strategyHints.preferredStyle}</p>
+                  <Separator className="my-2" />
+                  <p className="text-muted-foreground">{strategyHints.aiOpponentAnalysis}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hints available.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>

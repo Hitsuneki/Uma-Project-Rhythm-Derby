@@ -27,7 +27,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <AppProvider>
           <SidebarProvider>
-            <div className="flex min-h-screen w-full flex-col bg-background">
+            <div className="flex min-h-screen w-full bg-background">
               <Sidebar>
                 <SidebarHeader>
                   <Link href="/" className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export default function RootLayout({
                   </SidebarMenu>
                 </SidebarContent>
               </Sidebar>
-              <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
+              <div className="flex flex-1 flex-col">
                 <MobileHeader />
                 <SidebarInset>
                   {children}
