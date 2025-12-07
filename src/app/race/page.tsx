@@ -18,9 +18,9 @@ const RACE_LENGTH = 1000;
 const MAX_RACE_TIME = 30 * 1000; // 30 seconds
 const BASE_BEAT_INTERVAL = 500;
 const BEAT_RANDOMNESS = 200; // +/- 100ms
-const TIMING_WINDOW = 80;
+const TIMING_WINDOW = 80; // ms, +/- from beat
 const MAX_CHARGE = 3;
-const BURST_DURATION = 1000;
+const BURST_DURATION = 1000; // ms
 const LANE_COUNT = 3;
 const OPPONENT_COUNT = 3;
 
@@ -51,10 +51,13 @@ export default function RacePage() {
     const [opponents, setOpponents] = useState<Opponent[]>([]);
 
     const [beatTime, setBeatTime] = useState(0);
+    const [lastBeatTimestamp, setLastBeatTimestamp] = useState(0);
+    const [nextBeatInterval, setNextBeatInterval] = useState(BASE_BEAT_INTERVAL);
+
     const beatTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [showHitMarker, setShowHitMarker] = useState(false);
 
-    const currentPosition = (opponents.filter(o => o.position > position).length ?? 0) + 1;
+    const currentPosition = opponents.length > 0 ? opponents.filter(o => o.position > position).length + 1 : 1;
 
     useEffect(() => {
         if (!trainedCharacter && characters.length > 0) {
@@ -78,6 +81,7 @@ export default function RacePage() {
         setCharge(0);
         setIsBursting(false);
         setBeatTime(0);
+        setLastBeatTimestamp(0);
         elapsedTimeRef.current = 0;
         lastTickRef.current = 0;
         setFinalResult(null);
@@ -90,17 +94,17 @@ export default function RacePage() {
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         if (beatTimerRef.current) clearTimeout(beatTimerRef.current);
         setRaceState('finished');
-
-        const finalPosition = opponents.filter(o => o.position > position).length + 1;
+        
+        const finalPositionValue = opponents.filter(o => o.position > position).length + 1;
         
         const result: RaceResult = {
             id: uuidv4(),
             umaId: trainedCharacter!.character.id,
             distance,
-            phase1_quality: 90, phase2_quality: 85, phase3_quality: 95,
-            overall_quality: 90,
-            raceScore: 120,
-            placement: finalPosition,
+            phase1_quality: 90, phase2_quality: 85, phase3_quality: 95, // placeholder
+            overall_quality: 90, // placeholder
+            raceScore: 120, // placeholder
+            placement: finalPositionValue,
             date: new Date().toISOString()
         }
         
@@ -120,19 +124,19 @@ export default function RacePage() {
         elapsedTimeRef.current += delta;
 
         if (!trainedCharacter) return;
-        let currentSpeed = trainedCharacter.character.baseStats.speed / 10;
-        if (isBursting) {
-            currentSpeed *= 2;
-        }
         
-        let newPosition = position + currentSpeed * (delta / 1000);
+        let baseSpeed = (trainedCharacter.character.baseStats.speed ?? 50) / 10;
+        let currentSpeed = isBursting ? baseSpeed * 2 : baseSpeed;
+        
+        const newPosition = position + currentSpeed * (delta / 1000);
         setPosition(newPosition);
 
         setOpponents(prev => prev.map(op => ({
             ...op,
             position: op.position + op.speed * (delta / 1000)
         })));
-
+        
+        setBeatTime(Date.now());
 
         if (newPosition >= RACE_LENGTH || elapsedTimeRef.current >= MAX_RACE_TIME) {
             finishRace();
@@ -141,15 +145,16 @@ export default function RacePage() {
         }
     }, [trainedCharacter, isBursting, finishRace, position]);
 
-    const scheduleNextBeat = () => {
+    const scheduleNextBeat = useCallback(() => {
         const nextInterval = BASE_BEAT_INTERVAL + (Math.random() - 0.5) * BEAT_RANDOMNESS;
+        setNextBeatInterval(nextInterval);
         beatTimerRef.current = setTimeout(() => {
-            setBeatTime(Date.now());
+            setLastBeatTimestamp(Date.now());
             if (raceState === 'racing') {
                 scheduleNextBeat();
             }
         }, nextInterval);
-    };
+    }, [raceState]);
 
     const startRace = () => {
         resetRaceState();
@@ -164,6 +169,8 @@ export default function RacePage() {
         }));
         setOpponents(newOpponents);
 
+        setCurrentLane(Math.floor(LANE_COUNT / 2));
+        setLastBeatTimestamp(Date.now());
         scheduleNextBeat();
         
         lastTickRef.current = 0;
@@ -173,10 +180,10 @@ export default function RacePage() {
     const handlePlayerClick = () => {
         if (raceState !== 'racing' || !trainedCharacter) return;
 
-        const timeSinceBeat = Date.now() - beatTime;
+        const timeSinceBeat = Date.now() - lastBeatTimestamp;
         const effectiveWindow = TIMING_WINDOW + (trainedCharacter.character.baseStats.technique / 2);
 
-        if (timeSinceBeat <= effectiveWindow || (BASE_BEAT_INTERVAL - timeSinceBeat) <= effectiveWindow) {
+        if (timeSinceBeat <= effectiveWindow || (nextBeatInterval - timeSinceBeat) <= effectiveWindow) {
             setShowHitMarker(true);
             setTimeout(() => setShowHitMarker(false), 150);
 
@@ -184,18 +191,19 @@ export default function RacePage() {
                 setCharge(c => c + 1);
             }
         } else {
-            setCurrentLane(prev => (prev + 1) % LANE_COUNT);
+            // Off-beat click: switch lanes
+             setCurrentLane(prev => (prev + 1) % LANE_COUNT);
         }
     };
     
     useEffect(() => {
-        if (charge === MAX_CHARGE) {
+        if (charge === MAX_CHARGE && !isBursting) {
              setIsBursting(true);
              setCharge(0);
              if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
              burstTimeoutRef.current = setTimeout(() => setIsBursting(false), BURST_DURATION);
         }
-    }, [charge]);
+    }, [charge, isBursting]);
 
 
     if (!trainedCharacter) {
@@ -279,9 +287,9 @@ export default function RacePage() {
     );
 
     const renderRacing = () => {
-        const timeSinceBeat = Date.now() - beatTime;
-        const beatProgress = Math.min(100, (timeSinceBeat / (BASE_BEAT_INTERVAL + BEAT_RANDOMNESS / 2)) * 100);
-        const windowSize = (TIMING_WINDOW * 2 / BASE_BEAT_INTERVAL) * 100;
+        const timeSinceLastBeat = Date.now() - lastBeatTimestamp;
+        const beatProgress = Math.min(100, (timeSinceLastBeat / nextBeatInterval) * 100);
+        const windowSizePercent = (TIMING_WINDOW / nextBeatInterval) * 100;
 
         return (
             <div className="w-full flex flex-col items-center gap-4" onClick={handlePlayerClick}>
@@ -295,10 +303,20 @@ export default function RacePage() {
                     </CardHeader>
                      <CardContent className="space-y-4">
                         <div className="relative w-full h-8 bg-muted rounded-full overflow-hidden">
-                           <div className="absolute top-0 h-full bg-primary/30" style={{ left: `calc(100% - ${windowSize / 2}%)`, width: `${windowSize}%`, transform: 'translateX(-100%)' }} />
-                           <div className="absolute top-0 h-full bg-primary/30" style={{ left: '0%', width: `${windowSize / 2}%` }} />
-                           <div className="absolute h-full w-1 bg-primary" style={{ left: `${beatProgress}%` }} />
-                           {showHitMarker && <div className="absolute top-0 h-full w-2 bg-accent" style={{ left: `${beatProgress}%`}} />}
+                            {/* Timing window around the beat */}
+                            <div className="absolute top-0 h-full bg-primary/20" style={{ left: `calc(100% - ${windowSizePercent}px)`, right: '0', bottom: '0' }} />
+                            <div className="absolute top-0 h-full bg-primary/20" style={{ left: '0', width: `${windowSizePercent}px` }} />
+
+                            {/* Moving beat indicator */}
+                            <div className="absolute h-full w-1 bg-primary" style={{ left: `${beatProgress}%` }} />
+                            
+                            {/* Hit Marker */}
+                            {showHitMarker && (
+                                <div 
+                                    className="absolute top-0 h-full w-2 bg-accent animate-ping" 
+                                    style={{ left: `${beatProgress}%`}} 
+                                />
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2">
