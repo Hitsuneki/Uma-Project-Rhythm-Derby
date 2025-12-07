@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 
 type RaceState = 'setup' | 'racing' | 'finished'
 type RaceDistance = 'short' | 'mid' | 'long'
+type OpponentMentality = 'frontrunner' | 'steady' | 'late_burst';
 
 const RACE_LENGTH = 1000;
 const MAX_RACE_TIME = 30 * 1000; // 30 seconds
@@ -29,6 +30,7 @@ interface Opponent {
     lane: number;
     baseSpeed: number;
     currentSpeed: number;
+    mentality: OpponentMentality;
 }
 
 export default function RacePage() {
@@ -56,7 +58,7 @@ export default function RacePage() {
     const [showHitMarker, setShowHitMarker] = useState(false);
 
 
-    const allRunners = [...opponents, {id: 99, position: position, lane: currentLane, baseSpeed: 0, currentSpeed: 0}].sort((a,b) => b.position - a.position);
+    const allRunners = [...opponents, {id: 99, position: position, lane: currentLane, baseSpeed: 0, currentSpeed: 0, mentality: 'steady'}].sort((a,b) => b.position - a.position);
     const playerRank = allRunners.findIndex(r => r.id === 99) + 1;
 
     const randomizeBeatWindow = useCallback(() => {
@@ -100,7 +102,7 @@ export default function RacePage() {
         setRaceState('finished');
         if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
 
-        const finalAllRunners = [...opponents, {id: 99, position, lane: currentLane, baseSpeed: 0, currentSpeed: 0}].sort((a,b) => b.position - a.position);
+        const finalAllRunners = [...opponents, {id: 99, position, lane: currentLane, baseSpeed: 0, currentSpeed: 0, mentality: 'steady'}].sort((a,b) => b.position - a.position);
         const finalPlacement = finalAllRunners.findIndex(r => r.id === 99) + 1;
 
         const baseScore = 5000;
@@ -166,14 +168,30 @@ export default function RacePage() {
             return newPos;
         });
 
+        const raceProgress = position / RACE_LENGTH;
+
         setOpponents(prev => prev.map(op => {
-            // Simple AI: randomly change speed
-            let newSpeed = op.currentSpeed;
-            if (Math.random() < 0.01) { // small chance to 'burst'
-                newSpeed = op.baseSpeed * (1.5 + Math.random() * 0.5);
-            } else if (Math.random() < 0.05) { // small chance to return to base
-                newSpeed = op.baseSpeed;
+            let speedMultiplier = 1.0;
+            const posProgress = op.position / RACE_LENGTH;
+
+            // Phase-based strategy
+            if (posProgress < 0.33) { // Start
+                if (op.mentality === 'frontrunner') speedMultiplier = 1.15;
+                if (op.mentality === 'late_burst') speedMultiplier = 0.9;
+            } else if (posProgress >= 0.33 && posProgress < 0.75) { // Middle
+                if (op.mentality === 'frontrunner') speedMultiplier = 0.95;
+                if (op.mentality === 'steady') speedMultiplier = 1.05;
+            } else { // End
+                if (op.mentality === 'late_burst') speedMultiplier = 1.25;
+                if (op.mentality === 'frontrunner') speedMultiplier = 0.9;
             }
+
+            // Small random variation
+            if (Math.random() < 0.02) {
+                speedMultiplier *= (0.95 + Math.random() * 0.1); // +/- 5%
+            }
+
+            const newSpeed = op.baseSpeed * speedMultiplier;
 
             return {
                 ...op,
@@ -187,22 +205,25 @@ export default function RacePage() {
         } else {
             gameLoopRef.current = requestAnimationFrame(gameLoop);
         }
-    }, [trainedCharacter, isBursting, finishRace]);
+    }, [trainedCharacter, isBursting, finishRace, position]);
 
 
     const startRace = () => {
         resetRaceState();
         setRaceState('racing');
 
+        const mentalities: OpponentMentality[] = ['frontrunner', 'steady', 'late_burst'];
+
         const newOpponents = Array.from({ length: OPPONENT_COUNT }).map((_, i) => {
             const playerBaseSpeed = (trainedCharacter.trainedStats.speed ?? 50) / 10;
-            const baseSpeed = playerBaseSpeed * (0.85 + Math.random() * 0.3); // Range: 85% to 115% of player's base
+            const baseSpeed = playerBaseSpeed * (0.9 + Math.random() * 0.25); // Range: 90% to 115% of player's base
             return {
                 id: i,
                 position: 0,
                 lane: (i + 1) % LANE_COUNT,
                 baseSpeed: baseSpeed,
                 currentSpeed: baseSpeed,
+                mentality: mentalities[i % mentalities.length],
             };
         });
         setOpponents(newOpponents);
