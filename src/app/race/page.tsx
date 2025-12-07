@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useState, useEffect, useReducer, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/context/AppContext'
-import type { UmaCharacter, Stat, SprintResult, TrainedUma, RaceResult, Trait } from '@/lib/types'
+import type { UmaCharacter, RaceResult, Trait } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -46,7 +46,7 @@ const getPhaseConfig = (phase: RacePhase, character: UmaCharacter) => {
 
 export default function RacePage() {
     const router = useRouter()
-    const { trainedCharacter, addRaceToHistory, updateCharacter, setTrainedCharacter, characters } = useAppContext()
+    const { trainedCharacter, addRaceToHistory, setTrainedCharacter, characters } = useAppContext()
     const { toast } = useToast()
 
     const [raceState, setRaceState] = useState<RaceState>('setup')
@@ -59,31 +59,33 @@ export default function RacePage() {
     const [finalResult, setFinalResult] = useState<RaceResult | null>(null)
     const [progress, setProgress] = useState(0);
 
-    const raceTimer = useRef<NodeJS.Timeout | null>(null)
     const countdownTimer = useRef<NodeJS.Timeout | null>(null)
     const animationFrame = useRef<number>(0)
-    const phaseMetrics = useRef({ goodTime: 0, totalTime: 0, startTime: 0 })
+    
+    const phaseMetrics = useRef({ 
+        goodTime: 0, 
+        lastTimestamp: 0,
+        elapsedTime: 0,
+    })
 
     useEffect(() => {
         if (!trainedCharacter && characters.length > 0) {
-            // If no trained character is set, but characters exist, set the first one.
-            const firstChar = characters[0];
-            setTrainedCharacter({
+            const firstChar = characters.find(c => c.level > 0) || characters[0];
+             setTrainedCharacter({
                 character: firstChar,
                 trainedStats: firstChar.baseStats
             });
         }
         
         return () => {
-            if (raceTimer.current) clearTimeout(raceTimer.current)
-            if (countdownTimer.current) clearTimeout(countdownTimer.current)
+            if (countdownTimer.current) clearInterval(countdownTimer.current)
             if(animationFrame.current) cancelAnimationFrame(animationFrame.current)
         }
-    }, [trainedCharacter, characters, setTrainedCharacter, toast, router])
+    }, [trainedCharacter, characters, setTrainedCharacter])
 
     const currentPhase = useMemo(() => racePhases[currentPhaseIndex], [currentPhaseIndex])
     
-    const calculateRaceResults = () => {
+    const calculateRaceResults = useCallback(() => {
         if (!trainedCharacter) return;
         
         const weights = {
@@ -130,30 +132,34 @@ export default function RacePage() {
         
         setFinalResult(result)
         addRaceToHistory(result)
-        // You could add XP for racing here as well
-    }
+    }, [trainedCharacter, distance, phaseQualities, addRaceToHistory])
     
-    const finishPhase = () => {
-        cancelAnimationFrame(animationFrame.current)
-        const { goodTime, totalTime } = phaseMetrics.current
-        const quality = totalTime > 0 ? (goodTime / totalTime) * 100 : 0
-        setPhaseQualities(prev => ({...prev, [currentPhase]: quality}))
+    const finishPhase = useCallback(() => {
+        cancelAnimationFrame(animationFrame.current);
+        const { goodTime, elapsedTime } = phaseMetrics.current;
+        const quality = elapsedTime > 0 ? (goodTime / elapsedTime) * 100 : 0;
+        
+        setPhaseQualities(prev => ({...prev, [currentPhase]: quality}));
         
         if (currentPhaseIndex < racePhases.length - 1) {
-            setCurrentPhaseIndex(prev => prev + 1)
-            startPhase()
+            setCurrentPhaseIndex(prev => prev + 1);
+            startPhase();
         } else {
-            setRaceState('finished')
-            calculateRaceResults()
+            setRaceState('finished');
         }
-    }
+    }, [currentPhase, currentPhaseIndex]);
+
+    useEffect(() => {
+        if (raceState === 'finished') {
+            calculateRaceResults();
+        }
+    }, [raceState, calculateRaceResults]);
+
 
     const updateTension = useCallback((deltaTime: number) => {
         if (!trainedCharacter) return;
         const { comfortMin, comfortMax, gravity } = getPhaseConfig(currentPhase, trainedCharacter.character);
         
-        phaseMetrics.current.totalTime += deltaTime;
-        setProgress((phaseMetrics.current.totalTime / PHASE_DURATION) * 100);
         if (tension >= comfortMin && tension <= comfortMax) {
           phaseMetrics.current.goodTime += deltaTime;
         }
@@ -167,29 +173,38 @@ export default function RacePage() {
     }, [trainedCharacter, tension, currentPhase])
 
     const gameLoop = useCallback((timestamp: number) => {
-        if (phaseMetrics.current.startTime === 0) {
-            phaseMetrics.current.startTime = timestamp;
+        const { lastTimestamp } = phaseMetrics.current;
+        const deltaTime = timestamp - lastTimestamp;
+
+        if (deltaTime > 0) { // Ensure we don't run on the same frame
+            phaseMetrics.current.elapsedTime += deltaTime;
+            updateTension(deltaTime);
+
+            const progressPercentage = (phaseMetrics.current.elapsedTime / PHASE_DURATION) * 100;
+            setProgress(progressPercentage);
+
+            if (phaseMetrics.current.elapsedTime >= PHASE_DURATION) {
+                finishPhase();
+                return; // Stop the loop for this phase
+            }
         }
-        const deltaTime = timestamp - phaseMetrics.current.startTime;
-        phaseMetrics.current.startTime = timestamp;
-
-        updateTension(deltaTime);
+        
+        phaseMetrics.current.lastTimestamp = timestamp;
         animationFrame.current = requestAnimationFrame(gameLoop);
-    }, [updateTension])
+    }, [updateTension, finishPhase])
 
-    const startPhase = () => {
-        setTension(50); // Reset tension for new phase
+    const startPhase = useCallback(() => {
+        setTension(50);
         setProgress(0);
-        phaseMetrics.current = { goodTime: 0, totalTime: 0, startTime: 0 }
-        animationFrame.current = requestAnimationFrame(gameLoop)
+        phaseMetrics.current = { goodTime: 0, lastTimestamp: performance.now(), elapsedTime: 0 };
+        animationFrame.current = requestAnimationFrame(gameLoop);
+    }, [gameLoop]);
 
-        raceTimer.current = setTimeout(finishPhase, PHASE_DURATION)
-    }
-
-    const startRace = () => {
+    const startRace = useCallback(() => {
         setRaceState('racing')
+        setCurrentPhaseIndex(0);
         startPhase()
-    }
+    }, [startPhase])
 
     const startCountdown = () => {
         setRaceState('countdown')
@@ -359,5 +374,3 @@ export default function RacePage() {
         </main>
     );
 }
-
-    
