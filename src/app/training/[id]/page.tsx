@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useReducer, useMemo } from 'react'
+import React, { useState, useEffect, useReducer, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { useAppContext } from '@/context/AppContext'
