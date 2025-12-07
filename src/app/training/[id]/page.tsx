@@ -9,13 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { Zap, Shield, Brain, ChevronsUp, ChevronsDown, Award } from 'lucide-react'
+import { Zap, Shield, Brain, ChevronsUp, ChevronsDown, Award, Sparkles } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
 import { v4 as uuidv4 } from "uuid"
 
 type GameState = 'idle' | 'countdown' | 'sprinting' | 'finished'
+type SessionType = 'speed' | 'stamina' | 'technique' | 'mixed'
+
 type State = {
   stats: { speed: number, stamina: number, technique: number }
   lastSprint: SprintResult | null,
@@ -39,6 +41,14 @@ const statIcons = {
     stamina: Shield,
     technique: Brain,
 }
+
+const sessionOptions: { id: SessionType; label: string; icon: React.ElementType, description: string }[] = [
+    { id: 'speed', label: 'Speed Session', icon: Zap, description: 'Focus on explosive pace.' },
+    { id: 'stamina', label: 'Stamina Session', icon: Shield, description: 'Build endurance.' },
+    { id: 'technique', label: 'Technique Session', icon: Brain, description: 'Hone your form.' },
+    { id: 'mixed', label: 'Mixed Session', icon: Sparkles, description: 'A balanced workout.' },
+];
+
 
 const reducer = (state: State, action: Action): State => {
   switch (action.type) {
@@ -87,6 +97,7 @@ export default function TrainingPage() {
   const [state, dispatch] = useReducer(reducer, { stats: { speed: 0, stamina: 0, technique: 0 }, lastSprint: null, level: 1, xp: 0, xpToNextLevel: 100 })
 
   const [gameState, setGameState] = useState<GameState>('idle')
+  const [sessionType, setSessionType] = useState<SessionType | null>(null);
   const [countdown, setCountdown] = useState(3)
   const [tension, setTension] = useState(0)
   
@@ -114,30 +125,41 @@ export default function TrainingPage() {
   }, [params.id, router, selectedCharacter])
 
   const calculateSprintResults = () => {
-    if (!character) return;
+    if (!character || !sessionType) return;
 
     const { goodStride, overstrain, underpace, totalTime } = sprintMetrics.current
     if (totalTime === 0) return;
 
-    const goodStridePerc = (goodStride / totalTime) * 100
+    const quality = (goodStride / totalTime) * 100
     const overstrainPerc = (overstrain / totalTime) * 100
     const underpacePerc = (underpace / totalTime) * 100
 
-    let score = goodStridePerc - (overstrainPerc * 0.5 + underpacePerc * 0.25)
+    let score = quality - (overstrainPerc * 0.5 + underpacePerc * 0.25)
     
     let statChanges: Partial<Record<Stat, number>> = {}
-    if (goodStridePerc > 50) {
-      statChanges.speed = (statChanges.speed || 0) + 2
-      statChanges.technique = (statChanges.technique || 0) + 1
+    const qualityGain = Math.floor(quality / 10);
+
+    switch(sessionType) {
+        case 'speed':
+            statChanges.speed = qualityGain;
+            if (quality > 75) statChanges.technique = 1;
+            break;
+        case 'stamina':
+            statChanges.stamina = qualityGain;
+            if (quality < 25) statChanges.speed = -1;
+            break;
+        case 'technique':
+            statChanges.technique = qualityGain;
+            break;
+        case 'mixed':
+            if (quality > 50) {
+                statChanges.speed = Math.floor(qualityGain / 3);
+                statChanges.stamina = Math.floor(qualityGain / 3);
+                statChanges.technique = Math.floor(qualityGain / 3);
+            }
+            break;
     }
-    if (overstrainPerc > 0) {
-      statChanges.speed = (statChanges.speed || 0) + 1
-      statChanges.stamina = (statChanges.stamina || 0) - 1
-    }
-    if (underpacePerc > 20) {
-      statChanges.stamina = (statChanges.stamina || 0) + 2
-    }
-    
+
     // Trait effects
     if (character.trait.name === 'Late Burst' && (sprintMetrics.current.totalTime / 1000) > 9) {
         score *= 1.1;
@@ -145,7 +167,7 @@ export default function TrainingPage() {
     if (character.trait.name === 'Powerhouse' && overstrainPerc > 0) {
         statChanges.speed = (statChanges.speed || 0) + 1;
     }
-    if (character.trait.name === 'Prodigy' && goodStridePerc > 60) {
+    if (character.trait.name === 'Prodigy' && quality > 60) {
         statChanges.technique = (statChanges.technique || 0) + 1;
     }
      if (character.trait.name === 'Heart of Gold' && underpacePerc > 10) {
@@ -156,7 +178,7 @@ export default function TrainingPage() {
     const result: SprintResult = {
       id: uuidv4(),
       umaId: character!.id,
-      goodStride: Math.round(goodStridePerc),
+      goodStride: Math.round(quality),
       overstrain: Math.round(overstrainPerc),
       underpace: Math.round(underpacePerc),
       score: Math.round(score),
@@ -170,7 +192,7 @@ export default function TrainingPage() {
     const xpGained = Math.max(10, Math.round(score / 5));
     dispatch({ type: 'gain_xp', payload: { xp: xpGained } });
 
-    toast({ title: "Sprint Complete!", description: `You scored ${result.score} and gained ${xpGained} XP.` })
+    toast({ title: "Session Complete!", description: `Quality: ${result.goodStride}%. You gained ${xpGained} XP.` })
   }
 
   const updateTension = useCallback((deltaTime: number) => {
@@ -237,6 +259,7 @@ export default function TrainingPage() {
   
   const resetSprint = () => {
     setTension(0)
+    setSessionType(null);
     setGameState('idle')
   }
 
@@ -279,24 +302,48 @@ export default function TrainingPage() {
   const sweetZoneTop = `${100 - character.comfortMax}%`
   const sweetZoneHeight = `${character.comfortMax - character.comfortMin}%`
 
+  const renderIdleContent = () => {
+    if (!sessionType) {
+        return (
+            <div className="text-center">
+                <CardTitle className="text-2xl font-headline mb-2">Choose a Rhythm Session</CardTitle>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                    {sessionOptions.map(opt => (
+                        <Card key={opt.id} className="hover:bg-accent hover:border-primary cursor-pointer" onClick={() => setSessionType(opt.id)}>
+                            <CardContent className="p-4 flex flex-col items-center justify-center gap-2">
+                                {React.createElement(opt.icon, { className: "w-8 h-8 text-primary" })}
+                                <span className="font-semibold">{opt.label}</span>
+                                <p className="text-xs text-muted-foreground">{opt.description}</p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+    return <Button onClick={startCountdown} size="lg">Start {sessionType} Session</Button>;
+  }
+
+
   return (
     <main className="flex-1 p-4 sm:p-6">
        <div className="grid gap-6 lg:grid-cols-3">
          <div className="lg:col-span-2 space-y-6">
             <Card className="relative overflow-hidden">
                 <CardHeader>
-                  <CardTitle className="text-2xl font-headline">Training Sprint</CardTitle>
+                  <CardTitle className="text-2xl font-headline">Rhythm Training</CardTitle>
                    <CardDescription>
                     {
-                        gameState === 'idle' ? 'Click "Start Sprint" to begin.' :
+                        gameState === 'idle' && !sessionType ? 'Select a session type to begin.' :
+                        gameState === 'idle' && sessionType ? `Ready for a ${sessionType} session.` :
                         gameState === 'countdown' ? 'Get ready...' :
                         gameState === 'sprinting' ? 'Tap to build speed and stay in the sweet zone!' :
-                        'Sprint finished! See your results below.'
+                        'Session finished! See your results below.'
                     }
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center gap-4 h-96">
-                    {gameState === 'idle' && <Button onClick={startCountdown} size="lg">Start Sprint</Button>}
+                    {gameState === 'idle' && renderIdleContent()}
                     {gameState === 'countdown' && <span className="text-8xl font-bold font-headline text-primary">{countdown}</span>}
                     {(gameState === 'sprinting' || gameState === 'finished') && (
                        <div className="w-full h-full flex items-center justify-center">
@@ -317,7 +364,7 @@ export default function TrainingPage() {
                 </CardContent>
                 {gameState === 'finished' && (
                      <CardFooter className="flex justify-center gap-4">
-                        <Button onClick={resetSprint}>Train Again</Button>
+                        <Button onClick={resetSprint}>New Session</Button>
                         <Button variant="outline" onClick={enterShowcaseRace}>Showcase Race</Button>
                     </CardFooter>
                 )}
@@ -326,7 +373,7 @@ export default function TrainingPage() {
             {state.lastSprint && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Last Sprint Results</CardTitle>
+                  <CardTitle>Last Session Results</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-muted">
@@ -336,7 +383,7 @@ export default function TrainingPage() {
                     </div>
                     <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-green-500/10">
                         <ChevronsUp className="w-8 h-8 text-green-500"/>
-                        <Label>Good Stride</Label>
+                        <Label>Quality</Label>
                         <span className="text-2xl font-bold">{state.lastSprint.goodStride}%</span>
                     </div>
                     <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-red-500/10">
@@ -395,3 +442,5 @@ export default function TrainingPage() {
     </main>
   )
 }
+
+    
