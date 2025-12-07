@@ -142,9 +142,9 @@ export default function RacePage() {
         }
 
         // Speed and position logic
-        const baseSpeed = (trainedCharacter.character.baseStats.speed ?? 50) / 10;
+        const baseSpeed = (trainedCharacter.trainedStats.speed ?? 50) / 10;
         const burstMultiplier = isBursting ? 2 : 1;
-        const techBonus = (trainedCharacter.character.baseStats.technique ?? 50) / 100; // 0.5 to 1
+        const techBonus = (trainedCharacter.trainedStats.technique ?? 50) / 100; // 0.5 to 1
         const currentSpeed = baseSpeed * burstMultiplier * (1 + techBonus);
         
         setPosition(pos => Math.min(RACE_LENGTH, pos + currentSpeed * (delta / 1000)));
@@ -294,7 +294,7 @@ export default function RacePage() {
 
     const renderRacing = () => {
         return (
-            <div className="w-full flex flex-col items-center gap-4" onClick={handlePlayerClick} style={{ cursor: 'pointer' }}>
+            <div className="w-full flex flex-col items-center gap-4">
                 <Card className="w-full">
                     <CardHeader>
                         <div className="flex justify-between items-center">
@@ -361,6 +361,7 @@ export default function RacePage() {
                     ))}
                      <div className="absolute top-0 right-0 w-0.5 h-full bg-green-500" />
                 </div>
+                <Button onClick={handlePlayerClick} className="w-full max-w-xs" size="lg">Click</Button>
             </div>
         )
     };
