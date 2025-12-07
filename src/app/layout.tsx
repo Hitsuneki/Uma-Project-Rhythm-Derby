@@ -37,28 +37,28 @@ export default function RootLayout({
                 <SidebarContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <Link href="/" asChild>
-                        <SidebarMenuButton tooltip="Character Selection">
+                      <SidebarMenuButton tooltip="Character Selection" asChild>
+                        <Link href="/">
                           <Users />
                           <span>Characters</span>
-                        </SidebarMenuButton>
-                      </Link>
+                        </Link>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <Link href="/create" asChild>
-                        <SidebarMenuButton tooltip="Create New Uma">
+                      <SidebarMenuButton tooltip="Create New Uma" asChild>
+                        <Link href="/create">
                           <PlusSquare />
                           <span>Create Uma</span>
-                        </SidebarMenuButton>
-                      </Link>
+                        </Link>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <Link href="/history" asChild>
-                        <SidebarMenuButton tooltip="Race History">
+                      <SidebarMenuButton tooltip="Race History" asChild>
+                        <Link href="/history">
                           <History />
                           <span>Race History</span>
-                        </SidebarMenuButton>
-                      </Link>
+                        </Link>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                   </SidebarMenu>
                 </SidebarContent>
