@@ -198,7 +198,8 @@ export default function RacePage() {
     const handlePlayerClick = () => {
         if (raceState !== 'racing' || !trainedCharacter) return;
         
-        const progress = (performance.now() - beatCycleStartRef.current) / BASE_BEAT_INTERVAL;
+        // Use the same beatProgress state that drives the UI
+        const progress = beatProgress;
 
         if (progress >= beatWindow.start && progress <= beatWindow.end) {
             setShowHitMarker(true);
