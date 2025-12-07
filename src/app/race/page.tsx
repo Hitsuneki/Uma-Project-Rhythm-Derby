@@ -3,15 +3,24 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/context/AppContext'
-import type { UmaCharacter, RaceResult, Trait } from '@/lib/types'
+import type { UmaCharacter, RaceResult } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { v4 as uuidv4 } from "uuid"
+import { cn } from '@/lib/utils'
 
 type RaceState = 'setup' | 'racing' | 'finished'
 type RaceDistance = 'short' | 'mid' | 'long'
+
+// --- New Lane Pulse Racing constants ---
+const RACE_LENGTH = 1000; // arbitrary units for track length
+const BEAT_INTERVAL = 500; // ms per beat
+const TIMING_WINDOW = 80; // ms on either side of beat
+const MAX_CHARGE = 3;
+const BURST_DURATION = 1000; // ms
+const LANE_COUNT = 3;
 
 export default function RacePage() {
     const router = useRouter()
@@ -19,83 +28,146 @@ export default function RacePage() {
 
     const [raceState, setRaceState] = useState<RaceState>('setup')
     const [distance, setDistance] = useState<RaceDistance>('mid')
-    
     const [finalResult, setFinalResult] = useState<RaceResult | null>(null)
+
+    // --- Game State Refs ---
+    const gameLoopRef = useRef<number>(0);
+    const lastTickRef = useRef<number>(0);
+
+    // --- Player State ---
+    const [charge, setCharge] = useState(0);
+    const [isBursting, setIsBursting] = useState(false);
+    const burstTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [currentLane, setCurrentLane] = useState(1);
+    const [position, setPosition] = useState(0);
+
+    // --- Beat and Timing State ---
+    const [beatTime, setBeatTime] = useState(0);
+    const beatTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [showHitMarker, setShowHitMarker] = useState(false);
 
     useEffect(() => {
         if (!trainedCharacter && characters.length > 0) {
             const firstChar = characters.find(c => c.level > 0) || characters[0];
-             setTrainedCharacter({
+            setTrainedCharacter({
                 character: firstChar,
                 trainedStats: firstChar.baseStats
             });
         }
-    }, [trainedCharacter, characters, setTrainedCharacter])
+        return () => { // Cleanup timers on component unmount
+            if (beatTimerRef.current) clearInterval(beatTimerRef.current);
+            if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+            if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        }
+    }, [trainedCharacter, characters, setTrainedCharacter]);
 
 
-    const startRace = useCallback(() => {
+    const resetRaceState = () => {
+        setPosition(0);
+        setCurrentLane(1);
+        setCharge(0);
+        setIsBursting(false);
+        setBeatTime(0);
+        if (beatTimerRef.current) clearInterval(beatTimerRef.current);
+        if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+    }
+
+    const startRace = () => {
+        resetRaceState();
+        setRaceState('racing');
+
+        // Start the beat timer
+        beatTimerRef.current = setInterval(() => {
+            setBeatTime(Date.now());
+        }, BEAT_INTERVAL);
+        
+        // Start the game loop
+        lastTickRef.current = performance.now();
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+    };
+
+    const gameLoop = useCallback((timestamp: number) => {
         if (!trainedCharacter) return;
         
-        const weights = {
-            short: { start: 0.5, mid: 0.3, final: 0.2 },
-            mid: { start: 0.3, mid: 0.4, final: 0.3 },
-            long: { start: 0.2, mid: 0.4, final: 0.4 },
+        const delta = timestamp - lastTickRef.current;
+        lastTickRef.current = timestamp;
+
+        let currentSpeed = trainedCharacter.character.baseStats.speed / 10; // Base speed
+        if (isBursting) {
+            currentSpeed *= 2; // Burst bonus
         }
+        
+        const newPosition = position + currentSpeed * (delta / 1000);
 
-        // Dummy qualities for now
-        const phaseQualities = {
-            start: Math.random() * 50 + 50,
-            mid: Math.random() * 50 + 50,
-            final: Math.random() * 50 + 50,
-        };
-
-        const distWeights = weights[distance]
-
-        const overallQuality = 
-            (phaseQualities.start ?? 0) * distWeights.start +
-            (phaseQualities.mid ?? 0) * distWeights.mid +
-            (phaseQualities.final ?? 0) * distWeights.final;
-
-        const { speed, stamina, technique } = trainedCharacter.trainedStats;
-        const statWeights = {
-            short: { speed: 0.5, stamina: 0.2, technique: 0.3 },
-            mid: { speed: 0.35, stamina: 0.35, technique: 0.3 },
-            long: { speed: 0.25, stamina: 0.45, technique: 0.3 },
+        if (newPosition >= RACE_LENGTH) {
+            // Race finished
+            setPosition(RACE_LENGTH);
+            finishRace();
+        } else {
+            setPosition(newPosition);
+            gameLoopRef.current = requestAnimationFrame(gameLoop);
         }
-        const statW = statWeights[distance]
+    }, [trainedCharacter, isBursting, position]);
 
-        let raceScore = (speed * statW.speed) + (stamina * statW.stamina) + (technique * statW.technique) + (overallQuality * 0.2);
 
-        // Trait bonus
-        if(trainedCharacter.character.trait.name === 'Strong Finisher' && (phaseQualities.mid ?? 0) > 70) {
-            raceScore += 15;
-        }
-
-        const getPlacement = (score: number) => {
-            if (score > 150) return 1
-            if (score > 120) return 2
-            if (score > 90) return 3
-            return 4
-        }
-        const placement = getPlacement(raceScore)
-
+    const finishRace = () => {
+        if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
+        if (beatTimerRef.current) clearInterval(beatTimerRef.current);
+        
+        // Dummy results for now
         const result: RaceResult = {
             id: uuidv4(),
-            umaId: trainedCharacter.character.id,
+            umaId: trainedCharacter!.character.id,
             distance,
-            phase1_quality: Math.round(phaseQualities.start ?? 0),
-            phase2_quality: Math.round(phaseQualities.mid ?? 0),
-            phase3_quality: Math.round(phaseQualities.final ?? 0),
-            overall_quality: Math.round(overallQuality),
-            raceScore: Math.round(raceScore),
-            placement,
+            phase1_quality: 90, phase2_quality: 85, phase3_quality: 95,
+            overall_quality: 90,
+            raceScore: 120,
+            placement: 1,
             date: new Date().toISOString()
         }
         
         setFinalResult(result)
         addRaceToHistory(result)
         setRaceState('finished');
-    }, [trainedCharacter, distance, addRaceToHistory]);
+    }
+
+    const handlePlayerClick = () => {
+        if (raceState !== 'racing' || !trainedCharacter) return;
+
+        const timeSinceBeat = Date.now() - beatTime;
+        const effectiveWindow = TIMING_WINDOW + (trainedCharacter.character.baseStats.technique / 2);
+
+        if (timeSinceBeat <= effectiveWindow || (BEAT_INTERVAL - timeSinceBeat) <= effectiveWindow) {
+            // ON BEAT
+            setShowHitMarker(true);
+            setTimeout(() => setShowHitMarker(false), 150);
+
+            if (charge < MAX_CHARGE) {
+                setCharge(c => c + 1);
+            } else {
+                // Trigger burst if already max charge
+                setIsBursting(true);
+                setCharge(0);
+                if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+                burstTimeoutRef.current = setTimeout(() => setIsBursting(false), BURST_DURATION);
+            }
+        } else {
+            // OFF BEAT -> Lane flip
+            setCurrentLane(prev => (prev + 1) % LANE_COUNT);
+        }
+    };
+    
+    // Auto-trigger burst when charge reaches max
+    useEffect(() => {
+        if (charge === MAX_CHARGE) {
+             setIsBursting(true);
+             setCharge(0);
+             if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+             burstTimeoutRef.current = setTimeout(() => setIsBursting(false), BURST_DURATION);
+        }
+    }, [charge]);
+
 
     if (!trainedCharacter) {
         return (
@@ -143,13 +215,6 @@ export default function RacePage() {
             </CardContent>
         </Card>
     );
-    
-    const renderRacing = () => (
-        <div className="text-center">
-            <h2 className="text-4xl font-headline animate-pulse">Racing...</h2>
-            <p className="text-muted-foreground mt-2">The race is underway!</p>
-        </div>
-    );
 
     const placementText = (p: number) => {
         switch(p) {
@@ -186,12 +251,67 @@ export default function RacePage() {
         </Card>
     );
 
+    const renderRacing = () => {
+        const timeSinceBeat = Date.now() - beatTime;
+        const beatProgress = Math.min(100, (timeSinceBeat / BEAT_INTERVAL) * 100);
+        const windowSize = (TIMING_WINDOW * 2 / BEAT_INTERVAL) * 100;
+
+        return (
+            <div className="w-full flex flex-col items-center gap-4" onClick={handlePlayerClick}>
+                <Card className="w-full">
+                    <CardHeader>
+                        <CardTitle className='font-headline text-2xl'>Lane Pulse Racing</CardTitle>
+                        <CardDescription>Click on the beat to charge, click off-beat to switch lanes.</CardDescription>
+                    </CardHeader>
+                     <CardContent className="space-y-4">
+                        {/* Beat Bar */}
+                        <div className="relative w-full h-8 bg-muted rounded-full overflow-hidden">
+                           <div className="absolute top-0 h-full bg-primary/30" style={{ left: `calc(100% - ${windowSize / 2}%)`, width: `${windowSize}%`, transform: 'translateX(-100%)' }} />
+                           <div className="absolute top-0 h-full bg-primary/30" style={{ left: '0%', width: `${windowSize / 2}%` }} />
+                           <div className="absolute h-full w-1 bg-primary" style={{ left: `${beatProgress}%` }} />
+                           {showHitMarker && <div className="absolute top-0 h-full w-2 bg-accent" style={{ left: `${beatProgress}%`}} />}
+                        </div>
+
+                        {/* Charge Meter */}
+                        <div className="flex items-center gap-2">
+                            <Label>Charge:</Label>
+                            <div className="flex gap-2">
+                                {Array.from({ length: MAX_CHARGE }).map((_, i) => (
+                                    <div key={i} className={cn("w-6 h-6 rounded-full border-2 border-primary", i < charge ? 'bg-primary' : 'bg-transparent')} />
+                                ))}
+                            </div>
+                            {isBursting && <span className='ml-4 text-primary font-bold animate-pulse'>BURST!</span>}
+                        </div>
+                     </CardContent>
+                </Card>
+
+                {/* Race Track */}
+                <div className="relative w-full h-48 bg-muted/50 p-2 rounded-lg space-y-2">
+                    {Array.from({ length: LANE_COUNT }).map((_, i) => (
+                         <div key={i} className="relative w-full h-1/3 bg-foreground/10 rounded">
+                           {/* Player Runner */}
+                           {currentLane === i && (
+                                <div 
+                                    className="absolute top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold transition-all duration-100"
+                                    style={{ left: `calc(${(position / RACE_LENGTH) * 100}% - 16px)`}}
+                                >
+                                    U
+                                </div>
+                           )}
+                         </div>
+                    ))}
+                </div>
+            </div>
+        )
+    };
+
 
     return (
-        <>
+        <div className="w-full">
             {raceState === 'setup' && renderSetup()}
             {raceState === 'racing' && renderRacing()}
             {raceState === 'finished' && finalResult && renderFinished()}
-        </>
+        </div>
     );
 }
+
