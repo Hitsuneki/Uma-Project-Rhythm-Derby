@@ -7,45 +7,43 @@ export interface UmaCharacter {
   baseStats: {
     speed: number;
     stamina: number;
-    power: number;
     technique: number;
   };
-  style: 'Front' | 'Mid' | 'Back';
+  temperament: 'Calm' | 'Normal' | 'Fiery';
+  comfortMin: number;
+  comfortMax: number;
+  trait: {
+    name: string;
+    description: string;
+  };
 }
 
-export type Stat = 'speed' | 'stamina' | 'power' | 'technique';
+export type Stat = 'speed' | 'stamina' | 'technique';
 
 export interface TrainedUma {
   character: UmaCharacter;
   trainedStats: {
     speed: number;
     stamina: number;
-    power: number;
     technique: number;
   };
 }
 
-export interface RaceParticipant extends TrainedUma {
+export interface SprintResult {
+  id: string;
+  umaId: string;
+  goodStride: number; // Percentage
+  overstrain: number; // Percentage
+  underpace: number; // Percentage
   score: number;
-  placement: number;
-}
-
-export interface AiOpponent {
-  id: string;
-  name: string;
-  stats: {
-    speed: number;
-    stamina: number;
-    power: number;
-    technique: number;
-  };
-  style: 'Front' | 'Mid' | 'Back';
-}
-
-export interface RaceResult {
-  id: string;
-  distance: 'Short' | 'Mid' | 'Long';
-  participants: (RaceParticipant | (AiOpponent & { score: number, placement: number, character: { name: string, imageUrl: string } }))[];
-  playerPlacement: number;
+  statChanges: Partial<Record<Stat, number>>;
   date: string;
+}
+
+export interface ShowcaseRace {
+    id: string;
+    umaId: string;
+    raceScore: number;
+    placement: number;
+    date: string;
 }

@@ -1,256 +1,336 @@
 "use client"
 
-import React, { useReducer, useEffect, useState, useMemo } from 'react'
+import React, { useReducer, useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import Image from 'next/image'
 import { useAppContext } from '@/context/AppContext'
 import { presetCharacters } from '@/lib/characters'
-import type { UmaCharacter, Stat } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import type { UmaCharacter, Stat, SprintResult, TrainedUma } from '@/lib/types'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from '@/components/ui/separator'
-import { Zap, Shield, Dumbbell, Brain, Bed, Lightbulb, Trophy } from 'lucide-react'
+import { Zap, Shield, Brain, ChevronsUp, ChevronsDown, Award } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
-import { getCharacterStrategyHints } from '@/ai/flows/get-character-strategy-hints'
-import type { StrategyHints } from '@/ai/flows/get-character-strategy-hints'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
+import { v4 as uuidv4 } from "uuid"
 
-
-type TrainingAction = 'speed' | 'stamina' | 'power' | 'technique' | 'rest'
-type TrainingLog = { turn: number, action: TrainingAction, message: string }
+type GameState = 'idle' | 'countdown' | 'sprinting' | 'finished'
 type State = {
-  turn: number
-  stats: { speed: number, stamina: number, power: number, technique: number }
-  energy: number
-  logs: TrainingLog[]
+  stats: { speed: number, stamina: number, technique: number }
+  lastSprint: SprintResult | null
 }
-type Action = { type: 'train', payload: { action: TrainingAction } } | { type: 'reset', payload: { baseStats: State['stats'] } }
+type Action = { type: 'apply_sprint_results', payload: { statChanges: Partial<Record<Stat, number>>, sprintResult: SprintResult } } | { type: 'reset', payload: { baseStats: State['stats'] } }
 
-const MAX_TURNS = 10
-const ENERGY_COST = 15
-const REST_GAIN = 20
-const LOW_ENERGY_THRESHOLD = 20
+const SPRINT_DURATION = 12 * 1000 // 12 seconds
+const TENSION_PER_TAP = 8
+const TENSION_DECAY_RATE = 25 // per second
 
-const trainingOptions = [
-    { id: 'speed', label: 'Speed Training', icon: Zap, cost: ENERGY_COST, gain: { stat: 'speed', amount: 5 } },
-    { id: 'stamina', label: 'Stamina Training', icon: Shield, cost: ENERGY_COST, gain: { stat: 'stamina', amount: 5 } },
-    { id: 'power', label: 'Power Training', icon: Dumbbell, cost: ENERGY_COST, gain: { stat: 'power', amount: 5 } },
-    { id: 'technique', label: 'Technique Training', icon: Brain, cost: ENERGY_COST, gain: { stat: 'technique', amount: 5 } },
-    { id: 'rest', label: 'Rest', icon: Bed, cost: 0, gain: { stat: 'energy', amount: REST_GAIN } },
-] as const
+const statIcons = {
+    speed: Zap,
+    stamina: Shield,
+    technique: Brain,
+}
 
 const reducer = (state: State, action: Action): State => {
-  if (action.type === 'reset') {
-    return {
-      turn: 1,
-      stats: action.payload.baseStats,
-      energy: 100,
-      logs: []
-    }
-  }
-
-  if (state.turn > MAX_TURNS) return state
-
-  const { trainingAction } = { trainingAction: action.payload.action };
-  
-  if (trainingAction !== 'rest' && state.energy < ENERGY_COST) {
-    return {
+  switch (action.type) {
+    case 'reset':
+      return {
+        stats: action.payload.baseStats,
+        lastSprint: null,
+      }
+    case 'apply_sprint_results':
+      const newStats = { ...state.stats }
+      for (const [stat, change] of Object.entries(action.payload.statChanges)) {
+        newStats[stat as Stat] = Math.max(0, newStats[stat as Stat] + change)
+      }
+      return {
         ...state,
-        logs: [{ turn: state.turn, action: trainingAction, message: "Not enough energy!" }, ...state.logs]
-    }
-  }
-  
-  let newStats = { ...state.stats }
-  let newEnergy = state.energy
-  let logMessage = ""
-  const isFatigued = state.energy <= LOW_ENERGY_THRESHOLD && trainingAction !== 'rest'
-
-  const option = trainingOptions.find(o => o.id === trainingAction)!
-  
-  if (trainingAction === 'rest') {
-    newEnergy = Math.min(100, state.energy + option.gain.amount)
-    logMessage = `Energy restored to ${newEnergy}.`
-  } else {
-    newEnergy -= option.cost
-    const gainAmount = isFatigued ? Math.floor(option.gain.amount / 2) : option.gain.amount
-    newStats[option.gain.stat as Stat] += gainAmount
-    logMessage = `+${gainAmount} ${option.gain.stat}. ${isFatigued ? ' (Less effective due to low energy)' : ''}`
-  }
-
-  return {
-    turn: state.turn + 1,
-    stats: newStats,
-    energy: newEnergy,
-    logs: [{ turn: state.turn, action: trainingAction, message: logMessage }, ...state.logs],
+        stats: newStats,
+        lastSprint: action.payload.sprintResult
+      }
+    default:
+      return state
   }
 }
 
 export default function TrainingPage() {
   const router = useRouter()
   const params = useParams()
-  const { selectedCharacter, setTrainedCharacter } = useAppContext()
+  const { selectedCharacter, addSprintToHistory, setTrainedCharacter } = useAppContext()
   const { toast } = useToast()
 
   const [character, setCharacter] = useState<UmaCharacter | null>(null)
-  const [state, dispatch] = useReducer(reducer, { turn: 1, stats: { speed: 0, stamina: 0, power: 0, technique: 0 }, energy: 100, logs: [] })
-  const [strategyHints, setStrategyHints] = useState<StrategyHints | null>(null)
-  const [isLoadingHints, setIsLoadingHints] = useState(false)
+  const [state, dispatch] = useReducer(reducer, { stats: { speed: 0, stamina: 0, technique: 0 }, lastSprint: null })
+
+  const [gameState, setGameState] = useState<GameState>('idle')
+  const [countdown, setCountdown] = useState(3)
+  const [tension, setTension] = useState(0)
+  
+  const sprintTimer = useRef<NodeJS.Timeout | null>(null)
+  const countdownTimer = useRef<NodeJS.Timeout | null>(null)
+  const animationFrame = useRef<number>(0)
+  
+  const sprintMetrics = useRef({ goodStride: 0, overstrain: 0, underpace: 0, startTime: 0, totalTime: 0 })
 
   useEffect(() => {
-    let char: UmaCharacter | undefined;
-    if (selectedCharacter && selectedCharacter.id === params.id) {
-        char = selectedCharacter;
-    } else {
-        char = presetCharacters.find(c => c.id === params.id)
-    }
-
+    // Use selectedCharacter from context if available, otherwise find from presets
+    const char = selectedCharacter || presetCharacters.find(c => c.id === params.id)
     if (char) {
       setCharacter(char)
       dispatch({ type: 'reset', payload: { baseStats: char.baseStats } })
     } else {
       router.push('/')
     }
-  }, [params.id, selectedCharacter, router])
-  
-  useEffect(() => {
-    if (character && state.turn === 1) {
-      setIsLoadingHints(true);
-      getCharacterStrategyHints(character.baseStats)
-        .then(setStrategyHints)
-        .catch(err => {
-            console.error("Error getting hints:", err);
-            toast({ title: "AI Error", description: "Could not fetch strategy hints.", variant: "destructive" });
-        })
-        .finally(() => setIsLoadingHints(false));
+
+    return () => {
+      if (sprintTimer.current) clearTimeout(sprintTimer.current)
+      if (countdownTimer.current) clearTimeout(countdownTimer.current)
+      if(animationFrame.current) cancelAnimationFrame(animationFrame.current)
     }
-  }, [character, state.turn, toast])
+  }, [params.id, router, selectedCharacter])
+
+  const calculateSprintResults = () => {
+    const { goodStride, overstrain, underpace, totalTime } = sprintMetrics.current
+    if (totalTime === 0) return;
+
+    const goodStridePerc = (goodStride / totalTime) * 100
+    const overstrainPerc = (overstrain / totalTime) * 100
+    const underpacePerc = (underpace / totalTime) * 100
+
+    let score = goodStridePerc - (overstrainPerc * 0.5 + underpacePerc * 0.25)
+    
+    let statChanges: Partial<Record<Stat, number>> = {}
+    if (goodStridePerc > 50) {
+      statChanges.speed = (statChanges.speed || 0) + 2
+      statChanges.technique = (statChanges.technique || 0) + 1
+    }
+    if (overstrainPerc > 0) {
+      statChanges.speed = (statChanges.speed || 0) + 1
+      statChanges.stamina = (statChanges.stamina || 0) - 1
+    }
+    if (underpacePerc > 20) {
+      statChanges.stamina = (statChanges.stamina || 0) + 2
+    }
+    
+    // Trait effects
+    if (character?.trait.name === 'Late Burst' && (sprintMetrics.current.totalTime / 1000) > 9) {
+        score *= 1.1;
+    }
+    if (character?.trait.name === 'Powerhouse' && overstrainPerc > 0) {
+        statChanges.speed = (statChanges.speed || 0) + 1;
+    }
+    if (character?.trait.name === 'Prodigy' && goodStridePerc > 60) {
+        statChanges.technique = (statChanges.technique || 0) + 1;
+    }
+     if (character?.trait.name === 'Heart of Gold' && underpacePerc > 10) {
+        statChanges.stamina = (statChanges.stamina || 0) + 1;
+    }
 
 
-  const handleTraining = (action: TrainingAction) => {
-    dispatch({ type: 'train', payload: { action } })
+    const result: SprintResult = {
+      id: uuidv4(),
+      umaId: character!.id,
+      goodStride: Math.round(goodStridePerc),
+      overstrain: Math.round(overstrainPerc),
+      underpace: Math.round(underpacePerc),
+      score: Math.round(score),
+      statChanges,
+      date: new Date().toISOString()
+    }
+
+    dispatch({ type: 'apply_sprint_results', payload: { statChanges, sprintResult: result } })
+    addSprintToHistory(result)
+    toast({ title: "Sprint Complete!", description: `You scored ${result.score} points.` })
+  }
+
+  const updateTension = useCallback((deltaTime: number) => {
+    if (!character) return;
+    
+    sprintMetrics.current.totalTime += deltaTime;
+    if (tension > character.comfortMax) {
+      sprintMetrics.current.overstrain += deltaTime;
+    } else if (tension < character.comfortMin) {
+      sprintMetrics.current.underpace += deltaTime;
+    } else {
+      sprintMetrics.current.goodStride += deltaTime;
+    }
+    
+    let decay = TENSION_DECAY_RATE;
+    if(character.trait.name === 'Steady') decay *= 0.8;
+    
+    setTension(prev => Math.max(0, prev - decay * (deltaTime / 1000)))
+  }, [character, tension])
+
+  const gameLoop = useCallback((timestamp: number) => {
+    if (sprintMetrics.current.startTime === 0) {
+      sprintMetrics.current.startTime = timestamp;
+    }
+    const deltaTime = timestamp - sprintMetrics.current.startTime;
+    sprintMetrics.current.startTime = timestamp;
+
+    updateTension(deltaTime);
+    animationFrame.current = requestAnimationFrame(gameLoop);
+  }, [updateTension])
+
+  const startSprint = () => {
+    setGameState('sprinting')
+    sprintMetrics.current = { goodStride: 0, overstrain: 0, underpace: 0, startTime: 0, totalTime: 0 }
+    animationFrame.current = requestAnimationFrame(gameLoop)
+    sprintTimer.current = setTimeout(() => {
+      setGameState('finished')
+      cancelAnimationFrame(animationFrame.current)
+      calculateSprintResults()
+    }, SPRINT_DURATION)
+  }
+
+  const startCountdown = () => {
+    setGameState('countdown');
+    setCountdown(3);
+    let count = 3;
+    countdownTimer.current = setInterval(() => {
+      count--;
+      setCountdown(count);
+      if (count === 0) {
+        clearInterval(countdownTimer.current!);
+        startSprint();
+      }
+    }, 1000);
+  };
+
+  const handleTap = () => {
+    if (gameState !== 'sprinting') return
+    let tensionGain = TENSION_PER_TAP;
+    if (character?.temperament === 'Fiery') tensionGain *= 1.2;
+    if (character?.temperament === 'Calm') tensionGain *= 0.8;
+    setTension(prev => Math.min(100, prev + tensionGain))
   }
   
-  const handleRace = () => {
-    if (!character) return;
-    setTrainedCharacter({
-        character: character,
-        trainedStats: state.stats
-    })
-    toast({
-        title: "Training Complete!",
-        description: `${character.name} is ready to race!`
-    })
+  const resetSprint = () => {
+    setTension(0)
+    setGameState('idle')
+  }
+
+  const enterShowcaseRace = () => {
+    const trainedUma: TrainedUma = {
+      character: character!,
+      trainedStats: state.stats
+    }
+    setTrainedCharacter(trainedUma)
     router.push('/race')
   }
-
-  const isTrainingFinished = useMemo(() => state.turn > MAX_TURNS, [state.turn]);
 
   if (!character) {
     return <div className="flex-1 p-4 sm:p-6 flex justify-center items-center"><Skeleton className="w-full h-96" /></div>
   }
-  
+
+  const tensionHeight = `${tension}%`
+  const sweetZoneTop = `${100 - character.comfortMax}%`
+  const sweetZoneHeight = `${character.comfortMax - character.comfortMin}%`
+
   return (
     <main className="flex-1 p-4 sm:p-6">
-      <div className="grid gap-6 lg:grid-cols-3">
+       <div className="grid gap-6 lg:grid-cols-3">
+         <div className="lg:col-span-2 space-y-6">
+            <Card className="relative overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-headline">Training Sprint</CardTitle>
+                   <CardDescription>
+                    {
+                        gameState === 'idle' ? 'Click "Start Sprint" to begin.' :
+                        gameState === 'countdown' ? 'Get ready...' :
+                        gameState === 'sprinting' ? 'Tap to build speed and stay in the sweet zone!' :
+                        'Sprint finished! See your results below.'
+                    }
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center gap-4 h-96">
+                    {gameState === 'idle' && <Button onClick={startCountdown} size="lg">Start Sprint</Button>}
+                    {gameState === 'countdown' && <span className="text-8xl font-bold font-headline text-primary">{countdown}</span>}
+                    {(gameState === 'sprinting' || gameState === 'finished') && (
+                       <div className="w-full h-full flex items-center justify-center">
+                          <button onClick={handleTap} disabled={gameState !== 'sprinting'} className="w-40 h-full relative bg-muted rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary">
+                            <div className="absolute w-full bg-primary/20" style={{ top: sweetZoneTop, height: sweetZoneHeight }}/>
+                            <div className="absolute bottom-0 w-full bg-primary transition-all duration-75 ease-linear" style={{ height: tensionHeight }} />
+                            <div className="absolute bottom-0 w-full flex items-end justify-center" style={{ height: tensionHeight }}>
+                               <span className="text-primary-foreground font-bold mb-2 text-lg">{Math.round(tension)}</span>
+                            </div>
+                            {gameState === 'sprinting' && (
+                                <div className="absolute top-2 right-2">
+                                    <Progress value={(sprintMetrics.current.totalTime / SPRINT_DURATION) * 100} className="w-32"/>
+                                </div>
+                            )}
+                          </button>
+                       </div>
+                    )}
+                </CardContent>
+                {gameState === 'finished' && (
+                     <CardFooter className="flex justify-center gap-4">
+                        <Button onClick={resetSprint}>Train Again</Button>
+                        <Button variant="outline" onClick={enterShowcaseRace}>Showcase Race</Button>
+                    </CardFooter>
+                )}
+            </Card>
+
+            {state.lastSprint && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Last Sprint Results</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-muted">
+                        <Award className="w-8 h-8 text-primary"/>
+                        <Label>Score</Label>
+                        <span className="text-2xl font-bold">{state.lastSprint.score}</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-green-500/10">
+                        <ChevronsUp className="w-8 h-8 text-green-500"/>
+                        <Label>Good Stride</Label>
+                        <span className="text-2xl font-bold">{state.lastSprint.goodStride}%</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-red-500/10">
+                        <ChevronsUp className="w-8 h-8 text-red-500"/>
+                        <Label>Overstrain</Label>
+                        <span className="text-2xl font-bold">{state.lastSprint.overstrain}%</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-blue-500/10">
+                        <ChevronsDown className="w-8 h-8 text-blue-500"/>
+                        <Label>Underpace</Label>
+                        <span className="text-2xl font-bold">{state.lastSprint.underpace}%</span>
+                    </div>
+                </CardContent>
+              </Card>
+            )}
+        </div>
         
-        <div className="lg:col-span-1 lg:order-last space-y-6">
+        <div className="lg:col-span-1 space-y-6">
           <Card>
             <CardHeader className="relative h-48 flex justify-center items-center rounded-t-lg bg-muted">
-                <CardTitle className="relative text-3xl font-headline text-muted-foreground z-10">{character.name}</CardTitle>
+                 <div className="relative w-full h-full bg-muted flex items-center justify-center">
+                    <span className="font-headline text-3xl text-muted-foreground z-10">{character.name}</span>
+                 </div>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
-              <div>
-                <Label>Energy ({state.energy}/100)</Label>
-                <Progress value={state.energy} className="h-4 mt-1" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 {(Object.keys(state.stats) as Stat[]).map(stat => (
-                    <div key={stat} className="flex items-center gap-2">
-                        {React.createElement(trainingOptions.find(o => o.id === stat)!.icon, { className: 'w-5 h-5 text-primary' })}
-                        <span className="capitalize text-sm font-medium">{stat}:</span>
-                        <span className="font-bold">{state.stats[stat]}</span>
+                    <div key={stat} className="flex flex-col items-center gap-2 p-2 rounded-lg bg-muted">
+                        {React.createElement(statIcons[stat], { className: 'w-6 h-6 text-primary' })}
+                        <span className="capitalize text-sm font-medium">{stat}</span>
+                        <span className="font-bold text-xl">{state.stats[stat]}</span>
                     </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-          
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Lightbulb className="text-primary"/> Strategy Hints</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingHints ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-4 w-full" />
+               <Separator />
+               <div>
+                <Label>Comfort Zone</Label>
+                <div className="relative h-6 w-full bg-muted rounded-full mt-1">
+                    <div className="absolute h-full bg-primary/30 rounded-full" style={{ left: `${character.comfortMin}%`, width: `${character.comfortMax - character.comfortMin}%`}} />
                 </div>
-              ) : strategyHints ? (
-                <div className="space-y-2 text-sm">
-                  <p><strong>Best Distance:</strong> {strategyHints.bestDistance}</p>
-                  <p><strong>Preferred Style:</strong> {strategyHints.preferredStyle}</p>
-                  <Separator className="my-2" />
-                  <p className="text-muted-foreground">{strategyHints.aiOpponentAnalysis}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No hints available.</p>
-              )}
+               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="lg:col-span-2 lg:order-first space-y-6">
-            <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle className="text-2xl font-headline">Training: Turn {Math.min(state.turn, MAX_TURNS)} / {MAX_TURNS}</CardTitle>
-                        {isTrainingFinished && (
-                            <Button onClick={handleRace}><Trophy className="mr-2 h-4 w-4"/> Enter Race</Button>
-                        )}
-                    </div>
-                    <CardDescription>Select a training option to improve your Uma's stats.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {trainingOptions.map(option => (
-                            <Button
-                                key={option.id}
-                                variant="outline"
-                                className="h-24 flex flex-col gap-2 justify-center"
-                                onClick={() => handleTraining(option.id as TrainingAction)}
-                                disabled={isTrainingFinished || (option.id !== 'rest' && state.energy < ENERGY_COST)}
-                            >
-                                <option.icon className="w-8 h-8 text-primary" />
-                                <span className="font-semibold">{option.label}</span>
-                                {option.id !== 'rest' && <span className="text-xs text-muted-foreground">Cost: {option.cost} Energy</span>}
-                            </Button>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Training Log</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
-                        {state.logs.length > 0 ? state.logs.map((log, index) => (
-                             <Alert key={index} className={log.message.includes("Not enough energy") ? "border-destructive text-destructive" : ""}>
-                                <AlertTitle className="text-sm font-semibold">Turn {log.turn}: {log.action.charAt(0).toUpperCase() + log.action.slice(1)}</AlertTitle>
-                                <AlertDescription className="text-sm">{log.message}</AlertDescription>
-                            </Alert>
-                        )) : (
-                            <p className="text-sm text-muted-foreground text-center py-4">Your training log is empty. Start training!</p>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
       </div>
     </main>
   )

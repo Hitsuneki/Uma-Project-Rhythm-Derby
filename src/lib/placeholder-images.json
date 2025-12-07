@@ -2,50 +2,50 @@
   "placeholderImages": [
     {
       "id": "special-week",
-      "description": "An energetic and cheerful Uma with a can-do attitude.",
-      "imageUrl": "https://images.unsplash.com/photo-1644983141630-dff1704bf57c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxhbmltZSUyMGdpcmwlMjBicnVuZXR0ZXxlbnwwfHx8fDE3NjUxMTc4NzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "An energetic and cheerful Uma. She has a very balanced and easy-to-manage temperament.",
+      "imageUrl": "https://images.unsplash.com/photo-1639120653716-a53f88afeccc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxhbmltZSUyMGdpcmwlMjBicnVuZXR0ZXxlbnwwfHx8fDE3NjUxMTc4NzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl brunette"
     },
     {
       "id": "silence-suzuka",
-      "description": "A quiet and mysterious Uma known for her incredible speed.",
-      "imageUrl": "https://images.unsplash.com/photo-1683528176625-2a65907c50b9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxhbmltZSUyMGdpcmwlMjBwb255dGFpbHxlbnwwfHx8fDE3NjUxMTc4NzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "A quiet and mysterious Uma known for her incredible speed. Prefers a faster rhythm.",
+      "imageUrl": "https://images.unsplash.com/photo-1689400449181-f6c1cf374e6a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxhbmltZSUyMGdpcmwlMjBwb255dGFpbHxlbnwwfHx8fDE3NjUxMTc4NzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl ponytail"
     },
     {
       "id": "tokai-teio",
-      "description": "A confident and prideful Uma, always aiming for the top.",
-      "imageUrl": "https://images.unsplash.com/photo-1747919778453-13be939a710d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhbmltZSUyMGdpcmwlMjBjaGVlcmZ1bHxlbnwwfHx8fDE3NjUxMTc4NzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "A confident and prideful Uma, always aiming for the top. Very technical.",
+      "imageUrl": "https://images.unsplash.com/photo-1633307458354-292dd679a763?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxhbmltZSUyMGdpcmwlMjBjaGVlcmZ1bHxlbnwwfHx8fDE3NjUxMTc4NzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl cheerful"
     },
     {
       "id": "vodka",
-      "description": "A cool and rebellious Uma with a powerful running style.",
-      "imageUrl": "https://images.unsplash.com/photo-1712574823990-8613a3d6b1ee?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8YW5pbWUlMjBnaXJsJTIwdG9tYm95fGVufDB8fHx8MTc2NTExNzg3MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "A cool and rebellious Uma. Her fiery nature means she can easily overstrain.",
+      "imageUrl": "https://images.unsplash.com/photo-1747919778501-033bae25bdf9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxhbmltZSUyMGdpcmwlMjB0b21ib3l8ZW58MHx8fHwxNzY1MTE3ODcxfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl tomboy"
     },
     {
       "id": "gold-ship",
-      "description": "An unpredictable and goofy Uma who keeps everyone on their toes.",
-      "imageUrl": "https://images.unsplash.com/photo-1663034297211-b03e455e8f3d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxhbmltZSUyMGdpcmwlMjB3aGl0ZV9oYWlyfGVufDB8fHx8MTc2NTExNzg3MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "An unpredictable and goofy Uma. Her comfort zone is wide but she loses stamina fast.",
+      "imageUrl": "https://images.unsplash.com/photo-1663035044454-5c30952407a2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxhbmltZSUyMGdpcmwlMjB3aGl0ZV9oYWlyfGVufDB8fHx8MTc2NTExNzg3MXww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl white_hair"
     },
     {
       "id": "daiwa-scarlet",
-      "description": "A determined and elegant Uma who never settles for second best.",
+      "description": "A determined and elegant Uma who excels in maintaining a steady pace.",
       "imageUrl": "https://images.unsplash.com/photo-1764075087165-ac063f8352cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhbmltZSUyMGdpcmwlMjB0d2ludGFpbHN8ZW58MHx8fHwxNzY1MTE3ODcxfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl twintails"
     },
     {
       "id": "rice-shower",
-      "description": "A shy but incredibly resilient Uma with a dark horse reputation.",
-      "imageUrl": "https://images.unsplash.com/photo-1663035043243-f7c7d1be1b02?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8YW5pbWUlMjBnaXJsJTIwYmx1ZV9oYWlyfGVufDB8fHx8MTc2NTExNzg3MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "A shy but incredibly resilient Uma. She performs better under pressure.",
+      "imageUrl": "https://images.unsplash.com/photo-1571527831261-734f294303d3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxhbmltZSUyMGdpcmwlMjBibHVlX2hhaXJ8ZW58MHx8fHwxNzY1MTE3ODcxfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl blue_hair"
     },
     {
       "id": "haru-urara",
-      "description": "An eternally optimistic Uma who always tries her best, no matter the odds.",
-      "imageUrl": "https://images.unsplash.com/photo-1713919934032-e7fb2f3c0af4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxhbmltZSUyMGdpcmwlMjBwaW5rX2hhaXJ8ZW58MHx8fHwxNzY1MTE3ODcxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "An eternally optimistic Uma. She recovers stamina easily but struggles with speed.",
+      "imageUrl": "https://images.unsplash.com/photo-1663035046956-8198fd1c01fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhbmltZSUyMGdpcmwlMjBwaW5rX2hhaXJ8ZW58MHx8fHwxNzY1MTE3ODcxfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "anime girl pink_hair"
     }
   ]

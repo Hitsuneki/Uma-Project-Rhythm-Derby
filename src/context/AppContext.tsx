@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useMemo } from 'react';
-import type { UmaCharacter, TrainedUma, RaceResult } from '@/lib/types';
+import type { UmaCharacter, TrainedUma, SprintResult } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface AppContextType {
@@ -10,8 +10,8 @@ interface AppContextType {
   setSelectedCharacter: (character: UmaCharacter | null) => void;
   trainedCharacter: TrainedUma | null;
   setTrainedCharacter: (character: TrainedUma | null) => void;
-  raceHistory: RaceResult[];
-  addRaceToHistory: (result: RaceResult) => void;
+  sprintHistory: SprintResult[];
+  addSprintToHistory: (result: SprintResult) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -19,11 +19,11 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedCharacter, setSelectedCharacter] = useState<UmaCharacter | null>(null);
   const [trainedCharacter, setTrainedCharacter] = useState<TrainedUma | null>(null);
-  const [raceHistory, setRaceHistory] = useLocalStorage<RaceResult[]>('raceHistory', []);
+  const [sprintHistory, setSprintHistory] = useLocalStorage<SprintResult[]>('sprintHistory', []);
 
 
-  const addRaceToHistory = (result: RaceResult) => {
-    setRaceHistory(prev => [result, ...prev]);
+  const addSprintToHistory = (result: SprintResult) => {
+    setSprintHistory(prev => [result, ...prev.filter(s => s.umaId === result.umaId)]);
   };
   
   const contextValue = useMemo(() => ({
@@ -31,9 +31,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSelectedCharacter,
     trainedCharacter,
     setTrainedCharacter,
-    raceHistory,
-    addRaceToHistory
-  }), [selectedCharacter, trainedCharacter, raceHistory, setRaceHistory]);
+    sprintHistory,
+    addSprintToHistory
+  }), [selectedCharacter, trainedCharacter, sprintHistory, setSprintHistory]);
 
   return (
     <AppContext.Provider value={contextValue}>
