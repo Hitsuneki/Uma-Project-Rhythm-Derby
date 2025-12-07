@@ -20,37 +20,30 @@ export default function Header() {
     const isTrainingPage = pathname.startsWith('/training/');
 
     return (
-        <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container flex h-16 items-center justify-between">
-                <Link href="/" className="flex items-center gap-2">
-                    <span className="text-xl font-headline font-bold text-primary sm:text-2xl">Uma Project: Rhythm Derby</span>
-                </Link>
+        <nav className="flex w-full items-center justify-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="container flex h-14 items-center justify-center gap-4">
+                {navLinks.map(({ href, label, icon: Icon }) => {
+                    const isActive = href === '/' ? pathname === href : pathname.startsWith(href);
+                    const isCurrentTraining = href === '/training' && isTrainingPage;
 
-                <nav className="hidden items-center gap-4 sm:flex">
-                    {navLinks.map(({ href, label, icon: Icon }) => {
-                        const isActive = href === '/' ? pathname === href : pathname.startsWith(href);
-                        const isCurrentTraining = href === '/training' && isTrainingPage;
-
-                        return (
-                            <Button
-                                key={href}
-                                variant="ghost"
-                                asChild
-                                className={cn(
-                                    'text-muted-foreground transition-colors hover:text-foreground',
-                                    (isActive || isCurrentTraining) && 'text-foreground'
-                                )}
-                            >
-                                <Link href={href} className="flex items-center gap-2">
-                                    <Icon className="h-4 w-4" />
-                                    {label}
-                                </Link>
-                            </Button>
-                        );
-                    })}
-                </nav>
-                {/* Mobile Nav Trigger can be added here */}
+                    return (
+                        <Button
+                            key={href}
+                            variant="ghost"
+                            asChild
+                            className={cn(
+                                'text-muted-foreground transition-colors hover:text-foreground',
+                                (isActive || isCurrentTraining) && 'text-foreground'
+                            )}
+                        >
+                            <Link href={href} className="flex items-center gap-2">
+                                <Icon className="h-4 w-4" />
+                                {label}
+                            </Link>
+                        </Button>
+                    );
+                })}
             </div>
-        </header>
+        </nav>
     );
 }
